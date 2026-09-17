@@ -7,7 +7,10 @@ Telegram. It owns Telegram configuration, aggregation, delivery, and
 idempotency; it does not copy or modify the Partner skill's REST, Vault,
 signing, or profile implementation.
 
-Language: [简体中文](README.md) · English (this page) · [localized Telegram copy](telegram_push_copy.md)
+The canonical English entry point is [README.md](README.md). The Chinese
+translation is [README.zh-CN.md](README.zh-CN.md). The complete [user
+guide](docs/user-guide.md) and the [localized Telegram copy](telegram_push_copy.md)
+are also available in this repository.
 
 ## What is delivered
 
@@ -117,6 +120,22 @@ missing user input. `run` keeps scheduled tasks active on a headless host;
 `run --once` executes all enabled schedules immediately. `--force` is required
 for an intentional resend of an already recorded delivery.
 
+## Startup integration
+
+Inspect or install user-level startup integration explicitly:
+
+```bash
+python -m weex_tg_bot startup status
+python -m weex_tg_bot startup install --target autostart --confirm
+python -m weex_tg_bot startup install --target desktop --confirm  # GUI-capable hosts only
+python -m weex_tg_bot startup remove --target autostart --confirm
+```
+
+Autostart begins on the next login and does not run the scheduler immediately.
+The desktop launcher opens the GUI. All entry points share a cross-process
+scheduler lock: an existing scheduler keeps the GUI usable but prevents a
+second scheduler loop, and a second `run` exits cleanly.
+
 ## GUI and localization
 
 The GUI opens on an information-first Overview, a Push tasks area, and Help.
@@ -152,5 +171,7 @@ SQLite database is the runtime source of truth; the default file is
 platform configuration directory is used on Windows/Linux) with mode `600`.
 Tokens are stored in that database by default and are masked by `config show`.
 
-For the full routing and safety rules, see [SKILL.md](SKILL.md). The complete
-localized message templates are in [telegram_push_copy.md](telegram_push_copy.md).
+For the complete configuration and troubleshooting walkthrough, see the
+[user guide](docs/user-guide.md). For routing and safety rules, see
+[SKILL.md](SKILL.md). The complete localized message templates are in
+[telegram_push_copy.md](telegram_push_copy.md).
