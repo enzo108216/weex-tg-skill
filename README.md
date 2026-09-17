@@ -28,6 +28,40 @@ The default settlement coin is USDT and scheduled windows use complete UTC
 calendar periods. Missing fields, partial Partner results, query failures,
 mixed coins, and unknown `sourceType` values fail closed and are never sent.
 
+## Start here with AI
+
+For normal use, you do not need to run the Python commands yourself. In a
+skills-capable AI tool, ask:
+
+```text
+Install the WEEX Telegram Push skill from
+https://github.com/enzo108216/weex-tg-skill. Check the current setup, then
+configure one scheduled Telegram push for me. Reuse existing Bot, group, and
+WEEX profile records when possible; ask only for missing choices, keep tokens
+out of chat and logs, show me a final summary, and ask before writing or
+sending anything.
+```
+
+After installation, simple requests can be phrased naturally:
+
+```text
+Use $weex-tg-skill to show my current Telegram Bots, groups, and push tasks.
+```
+
+```text
+Use $weex-tg-skill to configure a daily 17:15 Asia/Shanghai push for the
+existing rebate task. Ask me only for values that are missing.
+```
+
+```text
+Use $weex-tg-skill to open the GUI and help me configure the Telegram push.
+```
+
+The AI still performs a read-only preflight, checks existing configuration,
+routes WEEX profile/Partner questions to their owning skills, and confirms the
+final configuration before a write. A test message or an actual push always
+requires a separate explicit request.
+
 ## Quick start
 
 Run the read-only preflight first:

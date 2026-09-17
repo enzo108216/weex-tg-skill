@@ -3,7 +3,41 @@
 This guide covers the current GUI, CLI, scheduled-task, and startup behavior.
 For Agent routing and safety rules, see [SKILL.md](../SKILL.md).
 
-## 1. Prerequisites and preflight
+## 1. AI-first installation and configuration
+
+The recommended path is to let a skills-capable AI tool install and configure
+the skill in one natural-language request:
+
+```text
+Install the WEEX Telegram Push skill from
+https://github.com/enzo108216/weex-tg-skill. Check what is already configured,
+then help me set up a scheduled Telegram push. Reuse existing Bot, group, and
+WEEX profile records; ask one missing choice at a time; keep secrets out of
+chat and logs; show a final summary; and ask before writing or sending.
+```
+
+After installation, use short prompts for common tasks:
+
+```text
+Use $weex-tg-skill to list my current Bots, groups, and push tasks.
+```
+
+```text
+Use $weex-tg-skill to configure a daily 17:15 Asia/Shanghai push for the
+existing rebate task.
+```
+
+```text
+Use $weex-tg-skill to open the GUI and help me configure the push task.
+```
+
+“One-click” means one conversational request, not an unchecked bulk write. The
+AI still runs `doctor --json`, inspects `config show`, routes profile and
+Partner questions to their owning skills, confirms the final Bot/group/profile/
+query/schedule summary, and treats test sends and real pushes as separate
+explicit actions.
+
+## 2. Prerequisites and preflight
 
 The project requires Python 3.10 or newer and an installed
 `weex-partner-skill`. Start with the read-only preflight:
@@ -17,7 +51,7 @@ also lists discovered Partner skill roots and the managed GUI runtime status.
 Do not install a system Tkinter package; use the managed runtime flow when the
 GUI is selected.
 
-## 2. Configure a Bot, group, and task
+## 3. Configure a Bot, group, and task
 
 The configuration is stored in one SQLite database. A Bot owns its name, token,
 and Partner skill root. A standalone group owns its display name and Chat ID.
@@ -63,7 +97,7 @@ Inspect the result without exposing the token:
 python -m weex_tg_bot config show
 ```
 
-## 3. GUI workflow
+## 4. GUI workflow
 
 Use the GUI when `doctor --json` reports `gui_capable=true`:
 
@@ -81,7 +115,7 @@ The GUI also participates in the shared scheduler lock. If another scheduler
 already owns the lock, the GUI still opens and edits configuration but its
 background scheduler does not start.
 
-## 4. Run scheduled tasks
+## 5. Run scheduled tasks
 
 On a headless host, or when you want a foreground scheduler, run:
 
@@ -103,7 +137,7 @@ launchers, and manual `run` may be used together:
 not a harmless health check. Treat it as a separate, explicitly confirmed
 operation.
 
-## 5. Startup integration
+## 6. Startup integration
 
 Inspect current startup files:
 
@@ -134,7 +168,7 @@ python -m weex_tg_bot startup remove --target autostart --confirm
 python -m weex_tg_bot startup remove --target desktop --confirm
 ```
 
-## 6. Manual delivery and testing
+## 7. Manual delivery and testing
 
 For a manual push, explicitly select one configured task or provide a complete
 ad-hoc query. Do not infer “yesterday”, the first profile, all groups, or all
@@ -157,7 +191,7 @@ python -m weex_tg_bot test-telegram \
 `--force` is required to resend an already recorded delivery. A test or manual
 send is separate from starting the scheduler.
 
-## 7. Storage, secrets, and responsibility boundaries
+## 8. Storage, secrets, and responsibility boundaries
 
 The default SQLite configuration is:
 

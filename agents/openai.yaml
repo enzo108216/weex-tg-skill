@@ -1,6 +1,6 @@
 interface:
   display_name: "WEEX Telegram Push"
   short_description: "Push WEEX rebates to Telegram"
-  default_prompt: "Use $weex-tg-skill with $weex-partner-skill; first clarify one-time delivery versus adding a scheduled task, then configure and activate any scheduler only after explicit confirmation."
+  default_prompt: "Use $weex-tg-skill with $weex-partner-skill. If the skill is not installed, guide the user through installation and one-request setup; inspect existing configuration, ask only for missing choices, show a final summary, and require confirmation before configuration writes, scheduler activation, tests, or sends."
 policy:
   allow_implicit_invocation: true

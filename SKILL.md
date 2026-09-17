@@ -7,6 +7,38 @@ description: Push complete daily WEEX Partner rebate results to Telegram through
 
 This skill is installed alongside `weex-partner-skill` from the official `weex-agent-skills` project.
 
+## Start here: AI-assisted installation and setup
+
+For normal use, users should start from the AI tool rather than running the
+Python modules manually. If this skill is not installed, recommend asking the
+AI tool:
+
+```text
+Install the WEEX Telegram Push skill from
+https://github.com/enzo108216/weex-tg-skill. Inspect the current setup, then
+configure one scheduled Telegram push. Reuse existing records, ask only for
+missing choices, keep secrets out of chat and logs, show a final summary, and
+ask before any configuration write or message send.
+```
+
+After installation, short prompts such as these are sufficient:
+
+```text
+Use $weex-tg-skill to show my current Telegram push tasks.
+```
+
+```text
+Use $weex-tg-skill to configure a daily 17:15 Asia/Shanghai push for the
+existing rebate task.
+```
+
+Treat “one-click setup” as one conversational request, not permission to make
+an unreviewed bulk change. The AI must still run the read-only preflight,
+inspect current configuration, route WEEX profile and Partner questions to
+their owning skills, show a final summary, and obtain confirmation immediately
+before each configuration write. Testing Telegram or sending a real push is a
+separate confirmation.
+
 ## Required OS/UI routing
 
 Before recommending, launching, or writing any Telegram configuration, run:

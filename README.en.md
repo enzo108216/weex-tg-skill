@@ -26,6 +26,28 @@ The default coin is USDT and the date boundary is the UTC calendar day.
 Missing fields, partial Partner results, query failures, mixed coins, and
 unknown `sourceType` values fail closed and are never sent.
 
+## Start here with AI
+
+For normal use, ask a skills-capable AI tool to install and configure the skill:
+
+```text
+Install the WEEX Telegram Push skill from
+https://github.com/enzo108216/weex-tg-skill. Inspect the current setup, reuse
+existing records where possible, ask only for missing choices, show a summary,
+and ask before writing configuration or sending a message.
+```
+
+Then use short prompts such as:
+
+```text
+Use $weex-tg-skill to show my current Telegram push tasks.
+```
+
+```text
+Use $weex-tg-skill to configure a daily 17:15 Asia/Shanghai push for my
+existing rebate task.
+```
+
 ## CLI quick start
 
 Run the preflight first. It reports GUI capability and read-only Partner skill

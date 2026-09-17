@@ -6,6 +6,28 @@
 
 本 skill 只负责 Telegram 配置、返佣结果聚合、发送和幂等。涉及 WEEX 账号添加/配置、API key、Vault、签名、REST/API、交易、分析或监控时，必须先读取并遵循对应的 `weex-trader-skill`、`weex-partner-skill`、`weex-analysis-skill` 或 `weex-monitor-skill`，不能依据本项目内容推断或直接操作。混合请求需要按职责拆分。
 
+## 用 AI 一句话安装和配置
+
+在支持 skills 的 AI 工具中，直接发送：
+
+```text
+从 https://github.com/enzo108216/weex-tg-skill 安装 WEEX Telegram Push skill，
+先检查当前配置，再帮我配置一个定时 TG 推送。尽量复用已有 Bot、群组和 WEEX
+profile，只询问缺失项；不要在聊天或日志中暴露 token；写入或发送前先给我摘要并确认。
+```
+
+安装后可以直接说：
+
+```text
+使用 $weex-tg-skill 查看我当前的 Bot、群组和推送任务。
+```
+
+```text
+使用 $weex-tg-skill 为现有返佣任务配置每天上海时间 17:15 推送。
+```
+
+AI 仍会先执行只读预检、读取现有配置，并在写入配置或发送消息前单独确认；“一键”指一条自然语言请求完成引导，不代表跳过安全确认。
+
 ## 五个字段
 
 - `Trading Volume = takerAmount + makerAmount`
