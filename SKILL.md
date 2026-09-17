@@ -142,7 +142,7 @@ authorize TG configuration writes.
 Use a short route question that makes the available choice and side effect
 explicit, for example:
 
-> 预检结果：桌面和 Tkinter 可用。你要使用 GUI、自己运行 CLI，还是选择逐步配置？GUI 路径会先自动检索当前 AI 工具的 Partner skill 目录，再处理 GUI runtime；逐步配置路径会先列出现有 Bot、群组和 WEEX profile，每次只询问一个选择或缺失字段，不要求一次性填写全部信息。
+> Preflight result: desktop and Tkinter are available. Would you like to use the GUI, run the CLI yourself, or have the agent configure it step by step? The GUI path first discovers the Partner skill from the current AI tool and then handles the GUI runtime; the guided path first lists existing Bots, groups, and WEEX profiles and asks for only one choice or missing value at a time.
 
 For a GUI-capable system, one route question is sufficient: a GUI choice covers
 Partner skill discovery/configuration, managed-runtime installation, and the
@@ -160,21 +160,21 @@ missing after combining the current turn with earlier context.
 ### 1. Preflight and route authorization
 
 Before creating or changing any Bot, group, task, schedule, or Partner query,
-resolve the delivery mode when the user has only said “推送返佣到 TG” (or an
+resolve the delivery mode when the user has only said “send rebates to Telegram” (or an
 equivalent ambiguous request). Ask one standalone question:
 
-1. **添加定时任务**：保存一个独立 task，包含 Bot/群组、profile、query、语言和 schedule。
-2. **单次使用**：只执行一次已配置 task 或一次临时查询，不创建或修改定时 task。
+1. **Add a scheduled task**: save an independent task containing the Bot/group, profile, query, language, and schedule.
+2. **One-time use**: execute one configured task or ad-hoc query without creating or changing a scheduled task.
 
-Do not infer “添加任务” from the existence of a schedule, a prior task, or a
+Do not infer “add a task” from the existence of a schedule, a prior task, or a
 general request to push. Do not query Partner, send Telegram, or write partial
 configuration until the user chooses one mode. If the user explicitly says
-“添加定时任务” or “单次发送”, reuse that choice and continue. For single-use
+“add a scheduled task” or “send once”, reuse that choice and continue. For single-use
 delivery, follow the manual mode selection in section 5 and keep task storage
 unchanged.
 
 Run `python -m weex_tg_bot doctor --json` first. Present the GUI/CLI/agent route
-and its side effect. A direct “帮我配置/启用/修复” request authorizes the
+and its side effect. A direct “configure/enable/repair” request authorizes the
 configuration write, but not a test message unless the user asks for one. A GUI
 choice authorizes the managed GUI runtime installation described above.
 
@@ -312,19 +312,19 @@ service/process must be running for the schedule to take effect, then run the
 read-only `doctor --json` and `startup status` checks again. Ask the user to
 choose exactly one startup method based on those facts:
 
-1. **当前打开 GUI** (only when `gui_capable=true`): with explicit confirmation,
+1. **Open the GUI now** (only when `gui_capable=true`): with explicit confirmation,
    launch `python -m weex_tg_bot gui --language auto`; the GUI scheduler runs
    while the window is open if no other scheduler owns the shared lock.
-2. **登录后自动运行**: with explicit confirmation, install the user-level entry
+2. **Run automatically after login**: with explicit confirmation, install the user-level entry
    using `python -m weex_tg_bot startup install --target autostart --confirm`.
    It starts at the next login and does not start the scheduler immediately.
-3. **桌面启动器** (only when `gui_capable=true`): with explicit confirmation,
+3. **Desktop launcher** (only when `gui_capable=true`): with explicit confirmation,
    run `python -m weex_tg_bot startup install --target desktop --confirm`, then
    tell the user to open the generated launcher. Creating the file does not
    launch the GUI.
-4. **手动运行**: provide `python -m weex_tg_bot run`; only start it on the
+4. **Run manually**: provide `python -m weex_tg_bot run`; only start it on the
    user's behalf after a separate explicit request to start the service now.
-5. **暂不启用**: keep the task saved but clearly mark it inactive until a
+5. **Do not activate yet**: keep the task saved but clearly mark it inactive until a
    scheduler is started.
 
 If the user chooses a startup method, complete that method in the same flow and
@@ -358,26 +358,26 @@ Every delivered message must include the binding and query context before the
 metrics so a reader can verify which account and scope produced the numbers:
 
 ```text
-📊 WEEX 返佣统计
+📊 WEEX Rebate Summary
 
-【查询信息】
-触发方式：手动查询
-WEEX 账号：<saved profile>
-查询范围：<全量下级（已确认）或指定下级 UID：...>
-查询时间（UTC）：<start> 至 <end>
-产品类型：<SPOT、FUTURES>
-结算币种：<USDT/BTC>
-推送目标：<bot name> / <group name or chat id>
+Query Information
+Trigger: Manual query
+WEEX profile: <saved profile>
+Scope: <all referrals (confirmed) or selected referral UIDs: ...>
+Query time (UTC): <start> to <end>
+Product types: <SPOT, FUTURES>
+Settlement coin: <USDT/BTC>
+Push target: <bot name> / <group name or chat id>
 
-【统计结果】
-交易量（Trading Volume）：<amount> <coin>
-手续费（Fee）：<amount> <coin>
-返佣（Commission）：<amount> <coin>
-下级返佣（Sub-affiliate Commission）：<amount> <coin>
-最终收入（Final Income）：<amount> <coin>
+Results
+Trading Volume: <amount> <coin>
+Fee: <amount> <coin>
+Commission: <amount> <coin>
+Sub-affiliate Commission: <amount> <coin>
+Final Income: <amount> <coin>
 
-计算公式：Final Income = Commission - Sub-affiliate Commission
-数据状态：完整
+Formula: Final Income = Commission - Sub-affiliate Commission
+Data status: complete
 ```
 
 The scope must be rendered as a readable confirmed-all label or a sorted UID
@@ -427,7 +427,7 @@ Routing rules:
 
 For a user-triggered push, the first response is a mode question, not a send:
 
-> 你要执行已配置的哪个 Bot/群组任务，还是做一次临时查询？如果是已配置任务，我会先列出 Bot 名称、群名称、Chat ID、profile 和时间段；如果是临时查询，请提供 UTC 开始/结束时间、账号 profile、币种/产品、范围（全部下级或 UID 列表）和目标 Bot/群组。
+> Which configured Bot/group task would you like to execute, or would you like to run an ad-hoc query? For a configured task, I will first list the Bot name, group name, Chat ID, profile, and available schedules. For an ad-hoc query, provide the UTC start/end, profile, coin/products, scope (all referrals or a UID list), and target Bot/group.
 
 If the user chooses a configured task, enumerate the current push tasks and
 schedules and require one explicit selection (or an explicit request to run a

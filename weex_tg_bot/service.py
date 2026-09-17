@@ -129,7 +129,7 @@ class RebateService:
         utc_date: date,
         targets: tuple[BotConfig, ...],
         *,
-        trigger: str = "手动查询",
+        trigger: str = "manual",
     ) -> dict[tuple[str, str], tuple[str, str, RebateSummary]]:
         """Fetch and aggregate all unique bindings before any Telegram send."""
         cache: dict[tuple[str, str], RebateSummary] = {}
@@ -198,7 +198,7 @@ class RebateService:
     ) -> DeliveryResult:
         targets = self._targets(groups=groups, bots=bots)
         self._validate_targets(targets)
-        prepared = self._prepare_summaries(utc_date, targets, trigger="手动查询")
+        prepared = self._prepare_summaries(utc_date, targets, trigger="manual")
         return self._send_prepared(utc_date.isoformat(), targets, prepared, force=force)
 
     def send_for_window(
