@@ -63,6 +63,11 @@ python -m weex_tg_bot config add-task -1001234567891 \
 Bot/group association in the push task. The GUI task editor uses the same
 SQLite records. `--timezone` controls the local push clock; query windows
 remain UTC.
+Configuration assistance is progressive: inspect and list existing Bots, groups,
+and WEEX profiles first; ask for only one selection or missing value per turn.
+If no profile exists, route to `weex-trader-skill`; if Partner products or UID
+capabilities are unavailable, route to `weex-partner-skill` instead of guessing
+or applying a hidden fallback.
 Supported natural windows are `1d`, `1w`, `1m`, and `1y`. A custom `Nd` window
 must include an anchor date in UTC (`Nd@YYYY-MM-DD`). A task with no schedule is
 manual-only.

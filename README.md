@@ -140,7 +140,7 @@ python -m weex_tg_bot doctor --json
 
 只有在不支持的操作系统、无交互桌面或 Tkinter 不可用时才只提供 CLI 路径（也可以由 agent 代为执行 CLI）；不要尝试安装系统级 Tkinter/桌面组件或在 headless 会话启动 GUI。CLI 仍须在首次写入、token/群组变更或测试发送前取得确认，并通过 stdin/environment 处理 token。用户明确授权时，也可以直接在聊天中提交 token；此时不得回显、记录或把 token 放入命令参数。`recommendation=gui` 和 `recommendation=gui-install` 只是就绪提示，不能替代 GUI 基础能力判断和用户路线选择。
 
-可以直接帮用户执行 CLI 配置，但必须先说明所需输入：自定义 Bot 名称、Telegram Bot token、自定义群名称、Chat ID，以及每个 Chat ID 对应的 WEEX profile 和 query。Chat ID 可以在聊天中提供；用户明确授权时 Bot token 也可以直接贴到聊天中，但 agent 不得回显 token、把 token 放进命令参数或写入日志，只能通过本地 stdin 或环境变量使用。
+AI 可以直接帮用户执行 CLI 配置，但必须采用逐步引导：先读取并列出现有 Bot、群组和 WEEX profile，让用户选择；只有缺少对象时才询问一个新字段。随后再逐步确认 profile、产品/币种、UID 范围、语言和定时。Chat ID 可以在聊天中提供；用户明确授权时 Bot token 也可以直接贴到聊天中，但 agent 不得回显 token、把 token 放进命令参数或写入日志，只能通过本地 stdin 或环境变量使用。没有 WEEX profile 时转交 `weex-trader-skill`，Partner 产品/UID 能力缺失时转交 `weex-partner-skill`，不得强行猜测或兜底。
 
 注意：TG 配置 GUI 与 WEEX 账号管理器是两个独立入口。打开 WEEX 账号管理器不等于已经授权 TG 配置写入。
 
@@ -155,7 +155,7 @@ python -m weex_tg_bot gui --language auto
 
 安装目录位于用户级 `weex-tg-skill/gui-runtime/venv`，不会复用系统 Python 的 GUI 依赖。没有用户选择 GUI（或明确确认安装）时不会自动创建 venv 或安装依赖。
 
-用户选择由 agent 直接配置时，先确认 Partner skill 路径、群名称/Chat ID，再用 `config set --bot-name NAME --token-stdin`/`--token-env` 添加 Bot、用 `config add-group CHAT_ID --group-name GROUP_NAME` 维护独立群组目录；随后可用 GUI 任务编辑器或 `config add-task CHAT_ID --bot-name NAME --task-name TASK_NAME --profile PROFILE` 创建 Bot/群组关联和推送任务。`send-result` 必须显式指定 `--bot-name` 与 `--chat-id`。若 token 是用户在聊天中明确授权提交的，也必须沿用 stdin/environment 路径，不能出现在命令参数或输出中。
+用户选择由 agent 直接配置时，按“预检 → 选择/新建 Bot → 选择/新建群组 → 选择现有 WEEX profile → 选择 Partner 能力和范围 → 设置语言/定时 → 展示摘要并确认 → 写入”的顺序推进，每轮只询问一个选择或缺失字段。然后用 `config set --bot-name NAME --token-stdin`/`--token-env` 添加 Bot、用 `config add-group CHAT_ID --group-name GROUP_NAME` 维护独立群组目录，再用 GUI 任务编辑器或 `config add-task` 创建任务。`send-result` 必须显式指定 `--bot-name` 与 `--chat-id`。若 token 是用户在聊天中明确授权提交的，也必须沿用 stdin/environment 路径，不能出现在命令参数或输出中。
 
 Agent 引导配置时按“预检 → 选择 GUI/CLI/代配置 → 收集自定义 Bot 名称、每个群名称/Chat ID、profile、query 和时间段 → 写入 SQLite → `config show` 验证 → 按需测试/发送”的顺序进行。缺少 Bot 名称、群名称、profile、Chat ID、明确全量 scope 或定时参数时只追问缺少项，不查询 Partner，也不写入部分假设配置。
 

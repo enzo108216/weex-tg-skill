@@ -41,28 +41,23 @@ before any write or window launch:
   group change, or test send if the user's route choice did not already clearly
   authorize that operation.
 - Agent-assisted setup: the agent can run the CLI steps on the user's behalf
-  after authorization. Tell the user up front that this requires a custom Bot
-  name, Telegram Bot token, custom group name, and one or more group Chat IDs.
-  Chat IDs may be provided in the
-  conversation. A user may also explicitly authorize direct token submission in
-  the conversation; when they do, treat the token as a secret, do not repeat or
-  log it, and pass it only through stdin or an environment variable (never as a
-  command argument). Confirm the target profile, Partner skill root, product
-  scope, and each group's binding before writing. Before GUI installation or
-  launch, inspect the current AI tool's skill roots: environment-provided
-  `*_SKILLS_ROOT`, `CODEX_HOME`, Codex vendor skills, and common tool
-  directories. Validate each candidate by locating
-  `weex-partner-skill/scripts/weex_partner_cli.py`. If exactly one candidate
-  exists, persist it to the shared SQLite `skill_root` before continuing; if
-  multiple candidates exist, show them and ask the user to choose; if none
-  exists, stop and ask the user to install or expose the Partner skill. Never
-  silently choose among multiple candidates.
-  Then use `config set --bot-name NAME --token-stdin`/`--token-env` for Bot tokens,
-  `config add-group CHAT_ID --group-name GROUP_NAME` for the standalone group
-  catalog, and `config add-task CHAT_ID --bot-name NAME --task-name TASK_NAME
-  --profile PROFILE` for an existing Bot/group target. The GUI creates the same
-  records through its Bot, group, and push-task dialogs; it does not maintain a
-  separate in-memory configuration. Use `test-telegram` only if asked.
+  after authorization, but must guide the user one decision at a time. Do not
+  ask for Bot name, token, Chat IDs, profile, query, and schedules as one batch.
+  First inspect the current SQLite configuration and list existing Bot names;
+  ask the user to choose an existing Bot or explicitly create a new one. Ask
+  for a token only when the selected Bot has no token or the user requests a
+  token change. Keep tokens secret and pass them only through stdin/environment.
+  Next list existing standalone groups and let the user choose one; ask for a
+  new group name/Chat ID only when no suitable group exists.
+  After a Bot/group target is selected, inspect saved WEEX profiles through the
+  owning `weex-trader-skill`; if no profile exists, route the user there and do
+  not invent a profile name. Then inspect Partner products, coins, and referral
+  UIDs through `weex-partner-skill`; if that skill is unavailable or the query
+  fails, route to its rules and stop rather than guessing defaults. Ask for one
+  missing query or schedule choice at a time, show a compact review, and obtain
+  confirmation immediately before writing. Use `config set`, `config add-group`,
+  and `config add-task` only after each corresponding choice is settled. The
+  GUI creates the same records through its dialogs and shared SQLite store.
 
 If the system is not GUI-capable (unsupported OS, no interactive desktop, or
 Tkinter unavailable), explain the blocking preflight facts and offer CLI-only
@@ -85,7 +80,7 @@ authorize TG configuration writes.
 Use a short route question that makes the available choice and side effect
 explicit, for example:
 
-> 预检结果：桌面和 Tkinter 可用，Token 默认存入权限为 600 的 SQLite，但 GUI managed runtime 尚未安装。你要使用 GUI、自己运行 CLI，还是让我直接帮你配置？选择 GUI 后，我会在后台为本 skill 安装隔离依赖并打开窗口；选择让我直接配置时，需要你准备自定义 Bot 名称、Bot token、每个 Chat ID 的群名称、profile/query，以及可选的 `HH:MM=1d|1w|1m|1y` 定时段。你也可以明确授权把 token 直接发在聊天中，我会仅通过 stdin/environment 使用，不回显或写入日志。
+> 预检结果：桌面和 Tkinter 可用。你要使用 GUI、自己运行 CLI，还是选择逐步配置？GUI 路径会先自动检索当前 AI 工具的 Partner skill 目录，再处理 GUI runtime；逐步配置路径会先列出现有 Bot、群组和 WEEX profile，每次只询问一个选择或缺失字段，不要求一次性填写全部信息。
 
 For a GUI-capable system, one route question is sufficient: a GUI choice covers
 Partner skill discovery/configuration, managed-runtime installation, and the
@@ -107,6 +102,27 @@ and its side effect. A direct “帮我配置/启用/修复” request authorize
 configuration write, but not a test message unless the user asks for one. A GUI
 choice authorizes the managed GUI runtime installation described above.
 
+### Progressive prompting rules
+
+The assistant must keep configuration conversational and incremental:
+
+1. **Inspect before asking.** Run `config show`/`config find` and read-only
+   discovery first. Present existing Bots, groups, profiles, Partner products,
+   and UID candidates when available; do not ask the user to retype known data.
+2. **One decision per turn.** Ask for at most one selection or one missing value
+   at a time: route → Bot → group → WEEX profile → query scope/products →
+   language → schedule → final review. If a value is already unambiguous and
+   the user has authorized configuration, reuse it only after stating it.
+3. **Route missing capabilities.** No saved WEEX profile means follow
+   `$weex-trader-skill`; no Partner catalog/UID/query capability means follow
+   `$weex-partner-skill`. Read that skill's rules and stop at its required input
+   or confirmation step. Do not create fake profiles, invent UIDs, call an
+   undocumented endpoint, or silently fall back to “yesterday”/all referrals.
+4. **Review before write.** Once the individual choices are complete, show one
+   compact summary of the Bot, group, profile, query, language, and schedule;
+   ask for confirmation immediately before the corresponding write. Testing or
+   sending Telegram is a separate confirmation.
+
 ### 2. Build the target binding set
 
 First create or select a Bot, then create one or more standalone groups. Create
@@ -114,8 +130,9 @@ a separate push task that selects an existing Bot and group; the task owns the
 Bot/group association, profile, query, language, and schedules, while the group
 owns only its name/Chat ID relationship. The GUI Overview and `config show` must expose
 Bot status, group catalog entries, task counts, and the one-to-many relationship.
-For each push task, collect
-these values together; never treat one global profile or query as sufficient:
+Do not collect every field in one prompt. After the Bot and group are selected,
+walk through the following choices one at a time; each push task keeps its own
+profile/query/language/schedules and must not inherit a global default:
 
 - A custom Bot name and Telegram Chat ID. The Bot name is the stable logical
   key and the human-readable name shown in task selection and messages; `main`
@@ -124,13 +141,15 @@ these values together; never treat one global profile or query as sufficient:
 - A custom group name for the Chat ID. Store it with `--group-name`; if the
   user leaves it empty, display the Chat ID as the fallback. Never invent a
   group name from a profile or query.
-- The saved WEEX profile for this push task. If it is ambiguous, list
-  available profile display names and ask the user to choose; never silently
-  reuse an unrelated profile.
-- Query: coin (`USDT` by default), product types (`SPOT,FUTURES` by default),
-  explicit scope (`--all-confirmed` or `--uids`), and formula (default
-  `commission_minus_subaffiliate_commission`). Never infer all scope from a
-  missing UID.
+- The saved WEEX profile for this push task. First list profiles from the
+  owning `weex-trader-skill`; if the list is empty or unavailable, route there
+  and stop. If it is ambiguous, ask the user to choose; never silently reuse an
+  unrelated profile or ask them to guess a profile name.
+- Query: first read the official Partner catalog and present available coin/
+  product choices; then ask for scope (`--all-confirmed` or `--uids`) and formula
+  (default `commission_minus_subaffiliate_commission`). Never infer all scope
+  from a missing UID. If the Partner catalog or UID operation is unavailable,
+  follow `$weex-partner-skill` instead of forcing a local fallback.
 - Query windows and push times are separate. Query windows support `1d`, `1w`,
   `1m`, `1y`, and positive `Nd` windows; custom Nd requires a UTC start date
   and uses fixed anchored cycles. Select multiple windows. Push times are
@@ -147,13 +166,15 @@ start/end date for scheduled windows; they are calculated at execution time.
 
 ### 3. Collect and validate the Bot secret
 
-Tell the user that a Telegram Bot token and one or more Chat IDs are required.
-Chat IDs may be supplied in chat. A token may be supplied in chat only after the
-user explicitly authorizes that route; otherwise use GUI, local stdin, or an
-environment variable. Never repeat the token, put it in a command argument, or
-write it to logs. When direct chat submission is explicitly authorized, allow
-the submitted token to be saved through the normal mode-600 SQLite path; do not
-reject it or require rotation solely because it appeared in the conversation.
+Only ask for a Telegram Bot token after the user has selected a Bot that has no
+stored token or has explicitly requested a change. Only ask for a Chat ID after
+existing groups have been listed and the user chooses to create a new group.
+Tokens may be supplied in chat only after the user explicitly authorizes that
+route; otherwise use GUI, local stdin, or an environment variable. Never repeat
+the token, put it in a command argument, or write it to logs. When direct chat
+submission is explicitly authorized, allow the submitted token to be saved
+through the normal mode-600 SQLite path; do not reject it or require rotation
+solely because it appeared in the conversation.
 If the user says the token was revoked or rotated, use the replacement token
 they provide.
 
