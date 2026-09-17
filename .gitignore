@@ -1,0 +1,41 @@
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+
+# Build and packaging outputs
+build/
+dist/
+*.egg-info/
+
+# Test, type-check, and coverage artifacts
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local application state and logs
+*.sqlite3
+*.db
+*.log
+gui-runtime/
+
+# IDE and OS metadata
+.idea/
+.vscode/
+.DS_Store
+
+# Development-process material intentionally kept out of the public repository
+memory/
+plans/
+需求分析/
+发版事项/
+需求资源/
+MANIFEST.md
