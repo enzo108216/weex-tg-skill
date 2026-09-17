@@ -134,9 +134,9 @@ python -m weex_tg_bot doctor --json
 
 把 `doctor` 输出作为路由依据展示给用户。先看 `gui_capable`（由 `os`、`tkinter_importable`、`desktop_available` 决定）判断系统是否具备 GUI 基础能力；不能因为 managed runtime 未安装就直接把 GUI 排除。只要 GUI 基础能力满足，就询问用户使用 GUI、自己运行 CLI，还是让 agent 直接帮忙配置，再进行任何窗口启动或配置写入。
 
-`doctor --json` 的 `skill_root_candidates` 是只读发现结果。AI 必须把候选路径展示给用户并确认后，才能写入 `skill_root`；没有候选时才询问用户提供路径。GUI 的“使用发现路径”按钮同样只是待确认值，点击保存后才落盘。
+`doctor --json` 的 `skill_root_candidates` 是只读发现结果。选择 GUI 或执行 `gui-install` 时，程序会先扫描当前 AI 工具暴露的 skill 根目录（包括 `*_SKILLS_ROOT`、`CODEX_HOME`、Codex vendor skills 和常见工具目录），验证 `weex-partner-skill/scripts/weex_partner_cli.py`；只有一个候选时自动写入 `skill_root`，多个候选时要求选择，找不到候选时停止并提示安装/暴露 Partner skill。CLI/GUI 不会静默选择多个候选。
 
-用户选择 GUI 后，如果 managed runtime 缺失，agent 应在后台执行 `python -m weex_tg_bot gui-install --accept-managed-runtime`，安装本 skill 自己的隔离依赖后再启动 `python -m weex_tg_bot gui --language auto`。该选择同时授权这次 managed runtime 的本地安装及其联网依赖安装，不再重复询问；安装失败时必须报告原因并明确提供 CLI 选项，不得静默切换或写入部分配置。不要把依赖安装到系统 Python。
+用户选择 GUI 后，agent 会先完成 Partner skill 自动发现/配置；候选唯一时无需再次手填路径。若 managed runtime 缺失，再在后台执行 `python -m weex_tg_bot gui-install --accept-managed-runtime`，安装本 skill 自己的隔离依赖后再启动 `python -m weex_tg_bot gui --language auto`。该选择同时授权这次 skill 路径配置和 managed runtime 的本地安装及其联网依赖安装；安装失败时必须报告原因并明确提供 CLI 选项，不得静默切换或写入部分配置。不要把依赖安装到系统 Python。
 
 只有在不支持的操作系统、无交互桌面或 Tkinter 不可用时才只提供 CLI 路径（也可以由 agent 代为执行 CLI）；不要尝试安装系统级 Tkinter/桌面组件或在 headless 会话启动 GUI。CLI 仍须在首次写入、token/群组变更或测试发送前取得确认，并通过 stdin/environment 处理 token。用户明确授权时，也可以直接在聊天中提交 token；此时不得回显、记录或把 token 放入命令参数。`recommendation=gui` 和 `recommendation=gui-install` 只是就绪提示，不能替代 GUI 基础能力判断和用户路线选择。
 

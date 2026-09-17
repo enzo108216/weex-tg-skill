@@ -43,6 +43,34 @@ def _root_candidates(value: str | Path) -> Iterable[Path]:
                 yield child
 
 
+def _current_ai_tool_skill_roots() -> tuple[Path, ...]:
+    """Return skill roots exposed by the active AI tool, read-only.
+
+    AI tools do not share one standard directory. Prefer explicit environment
+    roots exposed by the host, then inspect the current Codex home and the
+    common local skill roots for tools that use the same convention.
+    """
+    values: list[Path] = []
+    for key, value in os.environ.items():
+        if value and (key.endswith("_SKILLS_ROOT") or key in {"AI_SKILLS_ROOT", "CURRENT_AI_SKILLS_ROOT"}):
+            values.append(Path(value).expanduser())
+    codex_home = os.environ.get("CODEX_HOME")
+    if codex_home:
+        base = Path(codex_home).expanduser()
+        values.extend((base / "skills", base / "vendor_imports" / "skills"))
+    home = Path.home()
+    values.extend(
+        (
+            home / ".codex" / "skills",
+            home / ".codex" / "vendor_imports" / "skills",
+            home / ".claude" / "skills",
+            home / ".gemini" / "skills",
+            home / ".cursor" / "skills",
+        )
+    )
+    return tuple(values)
+
+
 def discover_skill_roots(
     *,
     search_roots: Iterable[str | Path] | None = None,
@@ -60,6 +88,7 @@ def discover_skill_roots(
         value = os.environ.get(key)
         if value:
             values.append(value)
+    values.extend(_current_ai_tool_skill_roots())
     if search_roots is not None:
         values.extend(search_roots)
     else:

@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from weex_tg_bot.discovery import discover_commission_filters, discover_saved_profiles, discover_skill_roots
@@ -17,6 +18,15 @@ class SkillDiscoveryTests(unittest.TestCase):
     def test_ignores_missing_candidates(self):
         with tempfile.TemporaryDirectory() as directory:
             self.assertEqual(discover_skill_roots(search_roots=(Path(directory),)), ())
+
+    def test_discovers_current_ai_tool_skill_root_from_codex_home(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "skills"
+            cli = root / "weex-partner-skill" / "scripts" / "weex_partner_cli.py"
+            cli.parent.mkdir(parents=True)
+            cli.write_text("# fixture", encoding="utf-8")
+            with patch.dict("os.environ", {"CODEX_HOME": directory}, clear=False):
+                self.assertIn(str((root / "weex-partner-skill").resolve()), discover_skill_roots(search_roots=()))
 
     def test_reads_commission_filter_options_from_official_catalog(self):
         with tempfile.TemporaryDirectory() as directory:

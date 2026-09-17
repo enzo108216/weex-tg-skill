@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 from .config import ConfigStore
 from .doctor import build_report
+from .discovery import discover_skill_roots
 from .i18n import available_locales
 from .ledger import DeliveryLedger
 from .models import AppConfig, BotConfig, GroupConfig, PushTaskConfig, QueryConfig, ScheduleConfig
@@ -24,6 +25,27 @@ from .telegram import TelegramSender
 
 def _store() -> ConfigStore:
     return ConfigStore()
+
+
+def _prepare_gui_skill_root(store: ConfigStore) -> str:
+    """Resolve and persist the Partner skill before GUI install or launch."""
+    configured = store.load().skill_root.strip()
+    if configured and (Path(configured).expanduser() / "scripts" / "weex_partner_cli.py").is_file():
+        return str(Path(configured).expanduser().resolve())
+    candidates = discover_skill_roots()
+    if not candidates:
+        raise RuntimeError(
+            "No installed weex-partner-skill was found in the current AI tool's skill directories; "
+            "run doctor --json and install or expose the skill before opening the GUI."
+        )
+    if len(candidates) > 1:
+        joined = ", ".join(candidates)
+        raise RuntimeError(
+            "Multiple weex-partner-skill candidates were found; confirm one with doctor --json "
+            f"before opening the GUI: {joined}"
+        )
+    store.set_skill_root(candidates[0])
+    return candidates[0]
 
 
 def _parse_date(value: str | None) -> date:
@@ -481,6 +503,7 @@ def _run(args: argparse.Namespace) -> int:
 
 def _gui(args: argparse.Namespace | None = None) -> int:
     language = getattr(args, "language", "auto")
+    _prepare_gui_skill_root(_store())
     reexec_under_managed_runtime(["--language", language])
     from .gui import launch
 
@@ -504,6 +527,7 @@ def _gui_preflight(args: argparse.Namespace) -> int:
 
 
 def _gui_install(args: argparse.Namespace) -> int:
+    _prepare_gui_skill_root(_store())
     report = ensure_managed_runtime(accept_managed_runtime=args.accept_managed_runtime)
     if args.as_json:
         print(json.dumps(report, ensure_ascii=False, indent=2))

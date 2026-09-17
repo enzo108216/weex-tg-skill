@@ -7,7 +7,7 @@ from pathlib import Path
 import tempfile
 from unittest.mock import patch
 
-from weex_tg_bot.cli import _binding_from_args, _config_find, _config_set, _config_task, _scheduled_bots, build_parser
+from weex_tg_bot.cli import _binding_from_args, _config_find, _config_set, _config_task, _gui_install, _prepare_gui_skill_root, _scheduled_bots, build_parser
 from weex_tg_bot.config import ConfigStore
 from weex_tg_bot.models import AppConfig, BotConfig, GroupConfig, PushTaskConfig, QueryConfig, ScheduleConfig
 
@@ -141,6 +141,32 @@ class CliTests(unittest.TestCase):
             loaded = store.load()
             self.assertEqual(loaded.tasks[0].chat_id, "-1001")
             self.assertEqual(loaded.tasks[0].language, "de")
+
+    def test_gui_skill_root_auto_configures_unique_current_tool_candidate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = ConfigStore(Path(directory), keyring_backend=None)
+            with patch("weex_tg_bot.cli.discover_skill_roots", return_value=("/tool/skills/weex-partner-skill",)):
+                self.assertEqual(_prepare_gui_skill_root(store), "/tool/skills/weex-partner-skill")
+            self.assertEqual(store.load().skill_root, "/tool/skills/weex-partner-skill")
+
+    def test_gui_skill_root_refuses_ambiguous_or_missing_candidates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = ConfigStore(Path(directory), keyring_backend=None)
+            with patch("weex_tg_bot.cli.discover_skill_roots", return_value=()):
+                with self.assertRaisesRegex(RuntimeError, "No installed weex-partner-skill"):
+                    _prepare_gui_skill_root(store)
+            with patch("weex_tg_bot.cli.discover_skill_roots", return_value=("/a", "/b")):
+                with self.assertRaisesRegex(RuntimeError, "Multiple weex-partner-skill"):
+                    _prepare_gui_skill_root(store)
+
+    def test_gui_install_prepares_skill_root_before_runtime_setup(self):
+        args = build_parser().parse_args(["gui-install", "--accept-managed-runtime", "--json"])
+        with patch("weex_tg_bot.cli._prepare_gui_skill_root") as prepare, patch(
+            "weex_tg_bot.cli.ensure_managed_runtime", return_value={"ready": True}
+        ) as install:
+            self.assertEqual(_gui_install(args), 0)
+        prepare.assert_called_once()
+        install.assert_called_once_with(accept_managed_runtime=True)
 
     def test_send_result_requires_explicit_binding(self):
         with self.assertRaises(SystemExit):

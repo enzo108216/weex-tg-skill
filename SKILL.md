@@ -48,10 +48,15 @@ before any write or window launch:
   the conversation; when they do, treat the token as a secret, do not repeat or
   log it, and pass it only through stdin or an environment variable (never as a
   command argument). Confirm the target profile, Partner skill root, product
-  scope, and each group's binding before writing. Before asking the user for a
-  skill path, run `python -m weex_tg_bot doctor
-  --json` and inspect `skill_root_candidates`. Show the read-only candidates and
-  ask the user to confirm one; never persist a discovered path silently.
+  scope, and each group's binding before writing. Before GUI installation or
+  launch, inspect the current AI tool's skill roots: environment-provided
+  `*_SKILLS_ROOT`, `CODEX_HOME`, Codex vendor skills, and common tool
+  directories. Validate each candidate by locating
+  `weex-partner-skill/scripts/weex_partner_cli.py`. If exactly one candidate
+  exists, persist it to the shared SQLite `skill_root` before continuing; if
+  multiple candidates exist, show them and ask the user to choose; if none
+  exists, stop and ask the user to install or expose the Partner skill. Never
+  silently choose among multiple candidates.
   Then use `config set --bot-name NAME --token-stdin`/`--token-env` for Bot tokens,
   `config add-group CHAT_ID --group-name GROUP_NAME` for the standalone group
   catalog, and `config add-task CHAT_ID --bot-name NAME --task-name TASK_NAME
@@ -83,7 +88,8 @@ explicit, for example:
 > 预检结果：桌面和 Tkinter 可用，Token 默认存入权限为 600 的 SQLite，但 GUI managed runtime 尚未安装。你要使用 GUI、自己运行 CLI，还是让我直接帮你配置？选择 GUI 后，我会在后台为本 skill 安装隔离依赖并打开窗口；选择让我直接配置时，需要你准备自定义 Bot 名称、Bot token、每个 Chat ID 的群名称、profile/query，以及可选的 `HH:MM=1d|1w|1m|1y` 定时段。你也可以明确授权把 token 直接发在聊天中，我会仅通过 stdin/environment 使用，不回显或写入日志。
 
 For a GUI-capable system, one route question is sufficient: a GUI choice covers
-the managed-runtime installation and subsequent TG window launch. A direct
+Partner skill discovery/configuration, managed-runtime installation, and the
+subsequent TG window launch. A direct
   agent-assisted choice covers the CLI setup only after the token delivery method
   and target groups plus their profile/query bindings are confirmed. A user choosing the WEEX account manager is
 not a substitute for the TG route choice.
@@ -145,8 +151,11 @@ Tell the user that a Telegram Bot token and one or more Chat IDs are required.
 Chat IDs may be supplied in chat. A token may be supplied in chat only after the
 user explicitly authorizes that route; otherwise use GUI, local stdin, or an
 environment variable. Never repeat the token, put it in a command argument, or
-write it to logs. If the token was exposed or rotated, require the replacement
-token instead of silently reusing the old one.
+write it to logs. When direct chat submission is explicitly authorized, allow
+the submitted token to be saved through the normal mode-600 SQLite path; do not
+reject it or require rotation solely because it appeared in the conversation.
+If the user says the token was revoked or rotated, use the replacement token
+they provide.
 
 Before writing, confirm the target profile, Partner skill root, all group/task
 parameters, and requested schedule entries. Bot tokens are stored in the mode-600
@@ -338,7 +347,7 @@ Use Decimal arithmetic. Reject missing fields, invalid/negative amounts, unknown
   launch, while `--language auto` follows the operating-system locale. Arabic and
   Persian apply RTL text direction automatically. GUI labels and Telegram formatter
   copy are loaded from the same catalog, and each push task persists its language.
-- GUI preflight/install: use `doctor --json` to decide whether the system is GUI-capable and to discover `skill_root_candidates`; after the user confirms a candidate and chooses GUI, run `python -m weex_tg_bot gui-install --accept-managed-runtime` in the background when dependencies are missing, then launch `python -m weex_tg_bot gui --language auto`.
+- GUI preflight/install: use `doctor --json` to decide whether the system is GUI-capable and expose `skill_root_candidates`; before either `gui-install` or `gui`, automatically persist a unique valid candidate from the current AI tool's skill roots, stop on ambiguity/missing candidates, then run `python -m weex_tg_bot gui-install --accept-managed-runtime` in the background when dependencies are missing, and finally launch `python -m weex_tg_bot gui --language auto`.
 - CLI: `doctor`, `gui-preflight`, `gui-install`, `config set`, `config add-group`, `config add-task`, `config find`, `config remove-bot`, `config remove-group`, `config clear-token`, `config show`, `test-telegram`, `send`, `send-result`, and `run`. `config find bot [QUERY]` searches Bot names; `config find group [QUERY]` searches group names and Chat IDs. `send-result` always requires an explicit `--bot-name` and `--chat-id`; `run --once` executes every enabled task schedule immediately.
 - Agent-assisted setup: offer to run the CLI configuration directly; require a
   custom Bot name, Bot token, standalone group name/Chat ID, and one or more

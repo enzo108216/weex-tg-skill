@@ -142,6 +142,9 @@ class ConfigStore:
     def set_gui_language(self, language: str) -> None:
         self.set_setting("gui_language", normalize_locale(language))
 
+    def set_skill_root(self, skill_root: str) -> None:
+        self.set_setting("skill_root", str(skill_root or "").strip())
+
     @staticmethod
     def _token_username(bot_name: str) -> str:
         return f"{_TOKEN_USERNAME_PREFIX}{bot_name}"

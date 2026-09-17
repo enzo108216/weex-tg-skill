@@ -91,6 +91,13 @@ target, profile, query, language, and schedules belong to push tasks. The GUI
 task editor and `config add-task` both read the same group catalog, and CLI token
 updates preserve tasks created in the GUI.
 
+Before GUI installation or launch, the CLI searches the current AI tool's skill
+roots (environment-provided `*_SKILLS_ROOT`, `CODEX_HOME`, Codex vendor skills,
+and common tool directories) for
+`weex-partner-skill/scripts/weex_partner_cli.py`. A single valid candidate is
+stored automatically; multiple candidates stop and require a choice; no
+candidate stops the GUI flow with an actionable error.
+
 For a manual delivery, first select one configured task (or collect a complete
 ad-hoc query contract). Then pass complete Partner envelopes to the explicit
 Bot/Chat binding:
@@ -116,7 +123,7 @@ On a headless host, use `run` instead.
 
 ```bash
 python -m weex_tg_bot gui-preflight --json
-python -m weex_tg_bot gui-install --accept-managed-runtime  # only after choosing GUI
+python -m weex_tg_bot gui-install --accept-managed-runtime  # skill discovery runs first
 python -m weex_tg_bot gui --language auto
 ```
 
