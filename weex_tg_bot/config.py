@@ -270,6 +270,7 @@ class ConfigStore:
                     profile=group.profile,
                     query=group.query,
                     schedules=group.schedules,
+                    language=group.language,
                 )
                 for bot in config.bots
                 for group in bot.groups
@@ -411,6 +412,7 @@ class ConfigStore:
                     profile=group.profile,
                     query=group.query,
                     schedules=group.schedules,
+                    language=task.language,
                 )
         if group.profile and not task_found:
             tasks.append(
@@ -422,6 +424,7 @@ class ConfigStore:
                     profile=group.profile,
                     query=group.query,
                     schedules=group.schedules,
+                    language=group.language,
                 )
             )
         groups = [item for item in config.groups if item.chat_id != group.chat_id]

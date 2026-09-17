@@ -41,9 +41,9 @@ printf '%s\n' "$TELEGRAM_BOT_TOKEN" | python -m weex_tg_bot config set \
 
 Groups and push tasks are separate records. A group stores only its Chat ID and
 display name; a push task stores the Bot/group target, Partner profile, query,
-language, and schedules. Use the GUI to create the Bot/group association, or
-use `config add-group` to maintain the standalone group catalog before adding a
-task for an existing target:
+language, and schedules. Use the GUI task editor, or use `config add-group` to
+maintain the standalone group catalog before `config add-task` materializes the
+Bot/group target:
 
 ```bash
 python -m weex_tg_bot config add-group -1001234567890 --group-name "Rebates"
@@ -59,9 +59,10 @@ python -m weex_tg_bot config add-task -1001234567891 \
   --schedule 23:00=3d@2026-09-01
 ```
 
-`config add-task` expects the Bot/group association to already exist (the GUI
-creates that association together with the group). `--timezone` controls the
-local push clock; query windows remain UTC.
+`config add-task` reads the standalone group catalog and materializes the
+Bot/group association in the push task. The GUI task editor uses the same
+SQLite records. `--timezone` controls the local push clock; query windows
+remain UTC.
 Supported natural windows are `1d`, `1w`, `1m`, and `1y`. A custom `Nd` window
 must include an anchor date in UTC (`Nd@YYYY-MM-DD`). A task with no schedule is
 manual-only.
@@ -83,6 +84,13 @@ Chat ID. Deleting a Bot also deletes its push tasks; deleting a standalone group
 deletes every push task targeting that Chat ID. The group catalog shows only
 group name and Chat ID; profile, query, and schedules belong to push tasks.
 
+The GUI, CLI, and Skill share the same SQLite database rather than separate
+configuration stores. Bot name/token/Partner path belong to the Bot record;
+group name/Chat ID belong to the standalone group catalog; task name, Bot/group
+target, profile, query, language, and schedules belong to push tasks. The GUI
+task editor and `config add-task` both read the same group catalog, and CLI token
+updates preserve tasks created in the GUI.
+
 For a manual delivery, first select one configured task (or collect a complete
 ad-hoc query contract). Then pass complete Partner envelopes to the explicit
 Bot/Chat binding:
@@ -99,10 +107,12 @@ for an intentional resend of an already recorded delivery.
 
 ## GUI and localization
 
-The GUI opens on an information-first Overview. Bot management, group
-associations, and push-task editors are separate modal flows. While the window
-is open it runs the in-process scheduler; closing the window stops it. On a
-headless host, use `run` instead.
+The GUI opens on an information-first Overview, a Push tasks area, and Help.
+The Overview manages searchable Bot and standalone group lists; Bot/group edits
+are modal dialogs. The Push tasks area owns Bot/group target selection, profile,
+query, language, schedules, Telegram testing, and immediate sending. While the
+window is open it runs the in-process scheduler; closing the window stops it.
+On a headless host, use `run` instead.
 
 ```bash
 python -m weex_tg_bot gui-preflight --json

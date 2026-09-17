@@ -174,6 +174,39 @@ class ConfigTests(unittest.TestCase):
             self.assertEqual(config.tasks, ())
             self.assertEqual([bot.name for bot in config.bots], ["alpha", "beta"])
 
+    def test_upsert_group_preserves_task_language_when_cli_updates_binding(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = ConfigStore(Path(directory), keyring_backend=None)
+            store.set_token("111:token", bot_name="main", allow_plaintext=True)
+            store.update(
+                store.load().with_groups((GroupConfig("-1001", label="运营群"),)).with_tasks(
+                    (
+                        PushTaskConfig(
+                            task_id="daily-ops",
+                            name="运营日报",
+                            bot_name="main",
+                            chat_id="-1001",
+                            profile="profile-a",
+                            query=QueryConfig(scope={"mode": "all", "all_confirmed": True}),
+                            language="de",
+                        ),
+                    )
+                ),
+                allow_plaintext=True,
+            )
+
+            store.upsert_group(
+                GroupConfig(
+                    "-1001",
+                    label="运营群",
+                    profile="profile-b",
+                    query=QueryConfig(scope={"mode": "all", "all_confirmed": True}),
+                ),
+                bot_name="main",
+            )
+
+            self.assertEqual(store.load().tasks[0].language, "de")
+
     def test_keyring_keeps_tokens_out_of_sqlite(self):
         with tempfile.TemporaryDirectory() as directory:
             keyring = MemoryKeyring()

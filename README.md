@@ -34,7 +34,7 @@ printf '%s\n' "$TELEGRAM_BOT_TOKEN" | python -m weex_tg_bot config set \
 python -m weex_tg_bot config add-group -1001234567890 --group-name "返佣群"
 python -m weex_tg_bot config add-group -1001234567891 --group-name "运营群"
 
-# 3. 为已有 Bot/群组关联创建独立推送任务（关联可先在 GUI 中建立）；profile/query/定时都属于任务
+# 3. 为已有 Bot/群组目录创建独立推送任务（GUI 任务编辑器或 CLI 都可建立关联）；profile/query/定时都属于任务
 #    --timezone 是推送时区，查询窗口仍按 UTC 计算
 python -m weex_tg_bot config add-task -1001234567890 \
   --bot-name rebates --task-name "每日返佣" --profile account-1 \
@@ -75,7 +75,7 @@ python -m weex_tg_bot gui-install --accept-managed-runtime
 python -m weex_tg_bot gui --language auto
 ```
 
-`config add-group` 只维护群组目录；推送任务必须绑定已经存在的 Bot/群组关联。GUI 是创建 Bot、关联群组和推送任务的一站式入口；CLI 的 `add-task` 用于给已有目标补充独立任务。
+`config add-group` 只维护群组目录；`config add-task` 会从独立群组目录读取 Chat ID，并把 Bot/群组关联写入推送任务。GUI 的 Bot、群组和推送任务弹窗与 CLI 共用同一 SQLite 配置。
 
 GUI 概览页支持按 Bot 名称、群名称或 Chat ID 查找，也可以删除选中的 Bot 或群组；删除 Bot 会同时删除其推送任务，删除群组会删除所有指向该 Chat ID 的推送任务。群组目录列只显示群名称和 Chat ID，profile、查询口径和定时设置属于推送任务列。
 
@@ -115,6 +115,17 @@ WEEX 账号：合伙人
 
 `config show` 永远分别显示 Bot、群组和推送任务：群组只包含名称/Chat ID，推送任务包含任务名、Bot、群组、profile、query、语言和定时设置。`--bot-name` 是 `--bot` 的明确别名，`--group-name` 是 `--label` 的明确别名；未填写群名称时推送文案回退显示 Chat ID。配置数据库默认位于 macOS 的 `~/Library/Application Support/weex-tg-skill/config.sqlite3`（Windows/Linux 使用对应配置目录），文件权限为 `600`；Telegram Bot token 默认直接保存到该 SQLite 数据库，不使用 macOS Keychain/Windows Credential Manager，也不需要额外明文存储确认。
 
+GUI、CLI 和本 Skill 共用同一个 SQLite 配置源，不使用三套独立配置：
+
+| 数据 | 所有者 | GUI 入口 | CLI/Skill 入口 |
+| --- | --- | --- | --- |
+| Bot 名称、Token、Partner skill 路径 | Bot 配置 | 概览 → 新建/编辑 Bot | `config set`、`config find bot` |
+| 群名称、Chat ID | 独立群组目录 | 概览 → 新建/编辑群组 | `config add-group`、`config find group` |
+| 任务名、Bot/群组目标、profile、query、语言、定时 | 推送任务 | 推送任务 → 新建/编辑 | `config add-task`、`config show` |
+| 查询窗口、推送时间、IANA 时区 | 推送任务定时记录 | 任务编辑器 | `--schedule`、`--timezone` |
+
+GUI 的实际流程是：概览页查找/管理 Bot 和独立群组；推送任务页选择已有 Bot、群组、profile、query、语言和定时后保存任务。GUI 保存后，CLI/Skill 立即从同一个 `config.sqlite3` 读取；CLI 修改 Token、群组或任务时也会保留 GUI 已保存的其他字段。GUI 打开期间由窗口内 scheduler 读取同一数据库，无 GUI 时使用 `run` 读取同一数据。
+
 开始配置前先检测环境并让 AI 检索 Partner skill 候选路径：
 
 ```bash
@@ -133,7 +144,7 @@ python -m weex_tg_bot doctor --json
 
 注意：TG 配置 GUI 与 WEEX 账号管理器是两个独立入口。打开 WEEX 账号管理器不等于已经授权 TG 配置写入。
 
-GUI 使用本 skill 自己的 managed venv。窗口打开后默认先进入“概览”，展示 Bot 状态、群组目录、任务数量和调度数量；Bot/群组新增和编辑均从概览打开模态弹窗，主导航不再提供重复的 Bot 管理/群组管理页面。推送任务页展示任务列表和测试/发送操作，创建和编辑也使用独立弹窗。GUI 启动时会同时启动后台调度器，保存后的任务会在任务时区的时间点自动检查并发送；关闭 GUI 后调度器停止。任务弹窗中的 profile 来自已保存账号，币种/产品选项从官方 Partner skill 契约动态读取，仅作为提示，不构成本地允许列表；用户输入最终由官方 Partner skill 校验。UID 通过官方 `list-referral-uids` 加载，支持搜索和多选。勾选“全部下级”会禁用并忽略 UID 选择器。查询窗口支持上一完整自然日/周/月/年，以及排除当天的近 N 天多选；自定义 N 天必须选择 UTC 开始日期。推送时间使用任务时区下的小时/分钟选择器，默认 UTC，支持 IANA 时区和夏令时，保存时生成时间×查询窗口组合。修改群组 Chat ID 会同步任务目标，任务语言独立保存。右上角语言选择器会自动发现 `weex_tg_bot/locales/*.json`，启动时按系统 locale 自动选择；当前随包提供 `en_us`、`zh_cn`、`zh_tw`、`ko`、`ja`、`vi`、`id`、`th`、`fa_ir`、`ar`、`tr`、`de`、`fr`、`it`、`es_es`、`pt_pt`、`pl`、`ru`、`uk`、`az`、`es_419`、`es_ar`、`pt_br`，新增语言只需新增同 key 的 locale JSON 文件。RTL 语言（阿拉伯语、波斯语）会自动应用右到左文本方向。Telegram 文案与 GUI 共用同一套 key。
+GUI 使用本 skill 自己的 managed venv。窗口打开后只有“概览”“推送任务”“使用说明”三个主区域：概览展示 Bot 状态、群组目录、任务数量和调度数量，并提供查找、编辑、删除；Bot/群组新增和编辑均从概览打开模态弹窗。群组弹窗只维护群名称和 Chat ID，不直接保存 profile/query；推送任务弹窗负责 Bot/群组目标、profile、query、语言和定时。推送任务页还提供测试 Telegram 和立即发送。GUI 启动时会同时启动后台调度器，保存后的任务会在任务时区的时间点自动检查并发送；关闭 GUI 后调度器停止。任务弹窗中的 profile 来自已保存账号，币种/产品选项从官方 Partner skill 契约动态读取，仅作为提示，不构成本地允许列表；用户输入最终由官方 Partner skill 校验。UID 通过官方 `list-referral-uids` 加载，支持搜索和多选。勾选“全部下级”会禁用并忽略 UID 选择器。查询窗口支持上一完整自然日/周/月/年，以及排除当天的近 N 天多选；自定义 N 天必须选择 UTC 开始日期。推送时间使用任务时区下的小时/分钟选择器，默认 UTC，支持 IANA 时区和夏令时，保存时生成时间×查询窗口组合。修改群组 Chat ID 会同步任务目标，任务语言独立保存。右上角语言选择器会自动发现 `weex_tg_bot/locales/*.json`，启动时按系统 locale 自动选择；当前随包提供 `en_us`、`zh_cn`、`zh_tw`、`ko`、`ja`、`vi`、`id`、`th`、`fa_ir`、`ar`、`tr`、`de`、`fr`、`it`、`es_es`、`pt_pt`、`pl`、`ru`、`uk`、`az`、`es_419`、`es_ar`、`pt_br`，新增语言只需新增同 key 的 locale JSON 文件。RTL 语言（阿拉伯语、波斯语）会自动应用右到左文本方向。Telegram 文案与 GUI 共用同一套 key。
 
 用户选择 GUI 且依赖缺失时，在后台执行：
 
@@ -144,7 +155,7 @@ python -m weex_tg_bot gui --language auto
 
 安装目录位于用户级 `weex-tg-skill/gui-runtime/venv`，不会复用系统 Python 的 GUI 依赖。没有用户选择 GUI（或明确确认安装）时不会自动创建 venv 或安装依赖。
 
-用户选择由 agent 直接配置时，先确认 Partner skill 路径、群名称/Chat ID，再用 `config set --bot-name NAME --token-stdin`/`--token-env` 添加 Bot、用 `config add-group CHAT_ID --group-name GROUP_NAME` 维护独立群组目录；群组与 Bot 的关联由 GUI 建立后，再用 `config add-task CHAT_ID --bot-name NAME --task-name TASK_NAME --profile PROFILE` 创建推送任务。`send-result` 必须显式指定 `--bot-name` 与 `--chat-id`。若 token 是用户在聊天中明确授权提交的，也必须沿用 stdin/environment 路径，不能出现在命令参数或输出中。
+用户选择由 agent 直接配置时，先确认 Partner skill 路径、群名称/Chat ID，再用 `config set --bot-name NAME --token-stdin`/`--token-env` 添加 Bot、用 `config add-group CHAT_ID --group-name GROUP_NAME` 维护独立群组目录；随后可用 GUI 任务编辑器或 `config add-task CHAT_ID --bot-name NAME --task-name TASK_NAME --profile PROFILE` 创建 Bot/群组关联和推送任务。`send-result` 必须显式指定 `--bot-name` 与 `--chat-id`。若 token 是用户在聊天中明确授权提交的，也必须沿用 stdin/environment 路径，不能出现在命令参数或输出中。
 
 Agent 引导配置时按“预检 → 选择 GUI/CLI/代配置 → 收集自定义 Bot 名称、每个群名称/Chat ID、profile、query 和时间段 → 写入 SQLite → `config show` 验证 → 按需测试/发送”的顺序进行。缺少 Bot 名称、群名称、profile、Chat ID、明确全量 scope 或定时参数时只追问缺少项，不查询 Partner，也不写入部分假设配置。
 

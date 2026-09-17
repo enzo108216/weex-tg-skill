@@ -55,9 +55,9 @@ before any write or window launch:
   Then use `config set --bot-name NAME --token-stdin`/`--token-env` for Bot tokens,
   `config add-group CHAT_ID --group-name GROUP_NAME` for the standalone group
   catalog, and `config add-task CHAT_ID --bot-name NAME --task-name TASK_NAME
-  --profile PROFILE` for an existing Bot/group target. The GUI is the one-stop
-  path for creating the association and task together. Use `test-telegram` only
-  if asked.
+  --profile PROFILE` for an existing Bot/group target. The GUI creates the same
+  records through its Bot, group, and push-task dialogs; it does not maintain a
+  separate in-memory configuration. Use `test-telegram` only if asked.
 
 If the system is not GUI-capable (unsupported OS, no interactive desktop, or
 Tkinter unavailable), explain the blocking preflight facts and offer CLI-only
@@ -103,10 +103,10 @@ choice authorizes the managed GUI runtime installation described above.
 
 ### 2. Build the target binding set
 
-First create or select a Bot, then create one or more standalone groups and
-associate them with the Bot in the GUI. Create a separate push task that selects an existing Bot and group;
-the task owns profile, query, language, and schedules, while the group owns only
-its name/Chat ID relationship. The GUI Overview and `config show` must expose
+First create or select a Bot, then create one or more standalone groups. Create
+a separate push task that selects an existing Bot and group; the task owns the
+Bot/group association, profile, query, language, and schedules, while the group
+owns only its name/Chat ID relationship. The GUI Overview and `config show` must expose
 Bot status, group catalog entries, task counts, and the one-to-many relationship.
 For each push task, collect
 these values together; never treat one global profile or query as sufficient:
@@ -239,7 +239,8 @@ groups cannot carry the wrong destination context.
 
 - Use `$weex-partner-skill` to query WEEX Partner data. Do not duplicate Partner REST signing, Vault handling, profile resolution, pagination, or query policy here.
 - This skill receives the Partner result, validates completeness, computes the daily summary, and sends it to configured Telegram push tasks.
-- SQLite is the source of truth for runtime configuration. Groups own only names/Chat IDs and Bot associations; each push task owns its Bot/group target, saved WEEX profile, query, language, and zero or more enabled schedules. A schedule is `HH:MM=1d|1w|1m|1y|Nd@YYYY-MM-DD` with an optional IANA timezone; the push clock uses that timezone while the window resolves to the previous complete UTC natural period (or an anchored custom `Nd` window), excluding the current day/week/month/year. Legacy binding rows are read as compatibility tasks.
+- SQLite is the source of truth for runtime configuration. Groups own only names/Chat IDs; each push task owns its Bot/group association, saved WEEX profile, query, language, and zero or more enabled schedules. A schedule is `HH:MM=1d|1w|1m|1y|Nd@YYYY-MM-DD` with an optional IANA timezone; the push clock uses that timezone while the window resolves to the previous complete UTC natural period (or an anchored custom `Nd` window), excluding the current day/week/month/year. Existing JSON and legacy binding rows are not read or migrated.
+- Shared GUI/CLI/Skill data contract: `bots` stores Bot name and token, `groups` stores standalone Chat ID and display name, `push_tasks` stores task name/Bot/group/profile/query/language, and `push_task_schedules` stores the task's time × query-window × timezone entries. `config set`, `config add-group`, and `config add-task` preserve and update these same records; the GUI task editor and the headless `run` scheduler read them through `ConfigStore`.
 - Telegram Bot tokens are managed by this project through the CLI/GUI. Direct
   token submission in chat is allowed only after the user explicitly authorizes
   it; never repeat, print, log, or place the token in a command argument.
@@ -321,10 +322,13 @@ Use Decimal arithmetic. Reject missing fields, invalid/negative amounts, unknown
 
 ## Configuration and scheduling
 
-- GUI: `python -m weex_tg_bot gui --language auto|<locale>`; it opens on an
-  information-first Overview with separate Bot and group association lists,
-  then enters Bot management or grouped push configuration only after the user
-  chooses New or Edit.
+- GUI: `python -m weex_tg_bot gui --language auto|<locale>`; it opens on three
+  areas: Overview, Push tasks, and Help. Overview provides searchable Bot and
+  standalone group catalog tables plus New/Edit/Delete actions. Bot dialogs own
+  name, token, and Partner path; group dialogs own only group name and Chat ID.
+  The Push tasks editor owns Bot/group target, profile, query, task language,
+  query windows, push times, and IANA timezone, and the task list provides
+  Telegram test and immediate-send actions.
 - The GUI discovers locale JSON files from `weex_tg_bot/locales/`, detects the system
   locale at startup, and supports immediate switching from the header selector. The
   bundled locales are `en_us`, `zh_cn`, `zh_tw`, `ko`, `ja`, `vi`, `id`, `th`,
@@ -345,9 +349,11 @@ Use Decimal arithmetic. Reject missing fields, invalid/negative amounts, unknown
   argument.
 - Bot routing: one custom logical Bot name owns one token and any number of
   independent group associations and push tasks. Create the Bot first, then
-  use the GUI group page to associate groups (the CLI `config add-group` only
-  maintains the standalone group catalog); use `config add-task` or the GUI
-  task page for profile/query/schedules.
+  use `config add-group` or the GUI group dialog to create the standalone group
+  catalog entry. The association is materialized when a push task selects the
+  Bot and group; use `config add-task` or the GUI task page for profile/query/
+  language/schedules. Both paths read and write the same SQLite tables, so a
+  task created in either path is visible to the other.
   The SQLite database is the source of truth; there is no JSON migration path.
   The GUI Overview supports case-insensitive lookup by Bot name, group name, or
   Chat ID. Deleting a Bot removes its push tasks; deleting a standalone group

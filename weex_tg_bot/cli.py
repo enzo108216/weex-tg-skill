@@ -58,6 +58,8 @@ def _config_set(args: argparse.Namespace) -> int:
     updated = AppConfig(
         skill_root=args.skill_root if args.skill_root is not None else config.skill_root,
         bots=tuple(bots),
+        groups=config.groups,
+        tasks=config.tasks,
     )
     store.update(updated, allow_plaintext=args.allow_plaintext_token)
     print(json.dumps(store.display(), ensure_ascii=False, indent=2))
@@ -131,7 +133,7 @@ def _config_task(args: argparse.Namespace) -> int:
     bot = next((item for item in config.bots if item.name == args.bot), None)
     if bot is None:
         raise ValueError(f"Bot not found: {args.bot}")
-    group = next((item for item in bot.groups if item.chat_id == args.chat_id), None)
+    group = next((item for item in config.groups if item.chat_id == args.chat_id), None)
     if group is None:
         raise ValueError(f"group not found for {args.bot}:{args.chat_id}")
     products = tuple(item.strip().upper() for item in (args.product_types or "SPOT,FUTURES").split(",") if item.strip())
@@ -176,6 +178,7 @@ def _config_add_schedule(args: argparse.Namespace) -> int:
         profile=group.profile,
         query=group.query,
         schedules=group.schedules + (schedule,),
+        language=group.language,
     )
     store.upsert_group(updated, bot_name=args.bot)
     print(json.dumps(store.display(), ensure_ascii=False, indent=2))
@@ -197,6 +200,7 @@ def _config_remove_schedule(args: argparse.Namespace) -> int:
         profile=group.profile,
         query=group.query,
         schedules=schedules,
+        language=group.language,
     )
     store.upsert_group(updated, bot_name=args.bot)
     print(json.dumps(store.display(), ensure_ascii=False, indent=2))

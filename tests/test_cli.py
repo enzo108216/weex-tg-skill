@@ -2,9 +2,13 @@ import unittest
 from datetime import datetime, timezone
 from io import StringIO
 import json
+import os
+from pathlib import Path
+import tempfile
 from unittest.mock import patch
 
-from weex_tg_bot.cli import _binding_from_args, _config_find, _scheduled_bots, build_parser
+from weex_tg_bot.cli import _binding_from_args, _config_find, _config_set, _config_task, _scheduled_bots, build_parser
+from weex_tg_bot.config import ConfigStore
 from weex_tg_bot.models import AppConfig, BotConfig, GroupConfig, PushTaskConfig, QueryConfig, ScheduleConfig
 
 
@@ -88,6 +92,55 @@ class CliTests(unittest.TestCase):
         with patch("weex_tg_bot.cli._store", return_value=fake_store), patch("sys.stdout", new_callable=StringIO) as output:
             self.assertEqual(_config_find(args), 0)
         self.assertEqual(json.loads(output.getvalue())["groups"], [{"group_name": "Ops", "chat_id": "-1002"}])
+
+    def test_config_set_preserves_gui_tasks_and_groups(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = ConfigStore(Path(directory), keyring_backend=None)
+            store.set_token("111:old", bot_name="rebates", allow_plaintext=True)
+            store.update(
+                store.load().with_groups((GroupConfig("-1001", label="运营群"),)).with_tasks(
+                    (
+                        PushTaskConfig(
+                            task_id="daily-ops",
+                            name="运营日报",
+                            bot_name="rebates",
+                            chat_id="-1001",
+                            profile="profile-a",
+                            query=QueryConfig(scope={"mode": "all", "all_confirmed": True}),
+                            language="de",
+                        ),
+                    )
+                ),
+                allow_plaintext=True,
+            )
+            args = build_parser().parse_args(["config", "set", "--bot-name", "rebates", "--token-env", "NEW_TOKEN"])
+            with patch.dict(os.environ, {"NEW_TOKEN": "222:new"}), patch("weex_tg_bot.cli._store", return_value=store), patch("sys.stdout", new_callable=StringIO):
+                self.assertEqual(_config_set(args), 0)
+
+            loaded = store.load()
+            self.assertEqual(loaded.bots[0].token, "222:new")
+            self.assertEqual(loaded.groups[0].chat_id, "-1001")
+            self.assertEqual(loaded.tasks[0].name, "运营日报")
+            self.assertEqual(loaded.tasks[0].language, "de")
+
+    def test_config_task_uses_standalone_group_catalog(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = ConfigStore(Path(directory), keyring_backend=None)
+            store.set_token("111:token", bot_name="rebates", allow_plaintext=True)
+            store.update(store.load().with_groups((GroupConfig("-1001", label="运营群"),)), allow_plaintext=True)
+            args = build_parser().parse_args(
+                [
+                    "config", "add-task", "-1001", "--bot-name", "rebates",
+                    "--task-name", "运营日报", "--profile", "profile-a", "--all-confirmed",
+                    "--language", "de",
+                ]
+            )
+            with patch("weex_tg_bot.cli._store", return_value=store), patch("sys.stdout", new_callable=StringIO):
+                self.assertEqual(_config_task(args), 0)
+
+            loaded = store.load()
+            self.assertEqual(loaded.tasks[0].chat_id, "-1001")
+            self.assertEqual(loaded.tasks[0].language, "de")
 
     def test_send_result_requires_explicit_binding(self):
         with self.assertRaises(SystemExit):
