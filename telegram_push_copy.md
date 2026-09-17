@@ -1,6 +1,8 @@
-# Telegram 固定推送文案（23 个语种）
+# Telegram 固定推送文案（23 个可选语种 + 2 个兼容别名）
 
 > 本文件由 `weex_tg_bot/locales/*.json` 当前资源生成；模板结构与 `formatter.py` 保持一致。`{...}` 为运行时动态占位符，实际发送时会替换为查询结果。
+>
+> `en` 与 `zh` 是分别指向英语（美国）和简体中文的兼容 locale 别名，文案与 `en_us`、`zh_cn` 保持一致。
 
 ## 动态占位符
 
@@ -86,6 +88,31 @@ Endergebnis: {final_income} {coin}
 
 {formula}
 Datenstatus: vollständig
+```
+
+## English (US) (`en`)
+
+```text
+📊 WEEX Rebate Summary
+
+Query details
+Trigger: {trigger}
+WEEX profile: {profile}
+Scope: {scope}
+UTC range: {utc_start} to {utc_end}
+Products: {products}
+Settlement coin: {coin}
+Target: {bot_name} / {target_label}
+
+Results
+Trading Volume: {trading_volume} {coin}
+Fee: {fee} {coin}
+Commission: {commission} {coin}
+Sub-affiliate Commission: {sub_affiliate_commission} {coin}
+Final Income: {final_income} {coin}
+
+{formula}
+Data status: complete
 ```
 
 ## English (US) (`en_us`)
@@ -536,6 +563,31 @@ Thu nhập cuối: {final_income} {coin}
 
 {formula}
 Trạng thái dữ liệu: đã hoàn tất
+```
+
+## 简体中文 (`zh`)
+
+```text
+📊 WEEX 返佣统计
+
+【查询信息】
+触发方式：{trigger}
+WEEX 账号：{profile}
+查询范围：{scope}
+查询时间（UTC）：{utc_start} 至 {utc_end}
+产品类型：{products}
+结算币种：{coin}
+推送目标：{bot_name} / {target_label}
+
+【统计结果】
+交易量（Trading Volume）：{trading_volume} {coin}
+手续费（Fee）：{fee} {coin}
+返佣（Commission）：{commission} {coin}
+下级返佣（Sub-affiliate Commission）：{sub_affiliate_commission} {coin}
+最终收入（Final Income）：{final_income} {coin}
+
+{formula}
+数据状态：完整
 ```
 
 ## 简体中文 (`zh_cn`)

@@ -26,6 +26,15 @@ class LocaleCatalogTests(unittest.TestCase):
         for locale in REQUIRED_LOCALES:
             self.assertEqual(set(catalog[locale]), keys, locale)
 
+    def test_telegram_copy_covers_every_locale_file(self):
+        copy_path = LOCALE_DIR.parents[1] / "telegram_push_copy.md"
+        headings = {
+            match.group(1)
+            for match in re.finditer(r"^## .*?\(`([^`]+)`\)", copy_path.read_text(), re.MULTILINE)
+        }
+        locale_files = {path.stem for path in LOCALE_DIR.glob("*.json")}
+        self.assertEqual(headings, locale_files)
+
     def test_format_placeholders_are_preserved(self):
         catalog = load_locale_catalog()
         source = catalog["en_us"]
