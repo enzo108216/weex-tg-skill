@@ -70,9 +70,18 @@ Inspect or maintain the configuration:
 
 ```bash
 python -m weex_tg_bot config show
+python -m weex_tg_bot config find bot rebates
+python -m weex_tg_bot config find group rebates
 python -m weex_tg_bot config clear-token --bot-name rebates
+python -m weex_tg_bot config remove-bot rebates
+python -m weex_tg_bot config remove-group -1001234567890
 python -m weex_tg_bot test-telegram --bot-name rebates --chat-id -1001234567890
 ```
+
+The GUI overview supports case-insensitive lookup by Bot name, group name, or
+Chat ID. Deleting a Bot also deletes its push tasks; deleting a standalone group
+deletes every push task targeting that Chat ID. The group catalog shows only
+group name and Chat ID; profile, query, and schedules belong to push tasks.
 
 For a manual delivery, first select one configured task (or collect a complete
 ad-hoc query contract). Then pass complete Partner envelopes to the explicit

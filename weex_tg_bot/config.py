@@ -431,20 +431,28 @@ class ConfigStore:
             allow_plaintext=allow_plaintext,
         )
 
-    def remove_group(self, chat_id: str, *, bot_name: str = "main") -> None:
+    def remove_bot(self, bot_name: str) -> None:
         bot_name = validate_bot_name(bot_name)
         config = self.load()
-        bots = [
+        bots = tuple(bot for bot in config.bots if bot.name != bot_name)
+        tasks = tuple(task for task in config.tasks if task.bot_name != bot_name)
+        self.save(config.with_bots(bots).with_tasks(tasks), allow_plaintext=True)
+
+    def remove_group(self, chat_id: str, *, bot_name: str = "main") -> None:
+        # Groups are a standalone catalog. Removing one therefore removes all
+        # task targets for that Chat ID, regardless of which Bot owns them.
+        _ = bot_name  # retained for compatibility with older callers
+        chat_id = str(chat_id)
+        config = self.load()
+        bots = tuple(
             BotConfig(
                 bot.name,
                 bot.token,
-                tuple(group for group in bot.groups if group.chat_id != str(chat_id)),
+                tuple(group for group in bot.groups if group.chat_id != chat_id),
             )
-            if bot.name == bot_name
-            else bot
             for bot in config.bots
-        ]
-        tasks = tuple(task for task in config.tasks if not (task.bot_name == bot_name and task.chat_id == str(chat_id)))
+        )
+        tasks = tuple(task for task in config.tasks if task.chat_id != chat_id)
         groups = tuple(item for item in config.groups if item.chat_id != str(chat_id))
         self.save(config.with_bots(tuple(bots)).with_groups(groups).with_tasks(tasks), allow_plaintext=True)
 

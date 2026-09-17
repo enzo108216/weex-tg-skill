@@ -335,7 +335,7 @@ Use Decimal arithmetic. Reject missing fields, invalid/negative amounts, unknown
   Persian apply RTL text direction automatically. GUI labels and Telegram formatter
   copy are loaded from the same catalog, and each push task persists its language.
 - GUI preflight/install: use `doctor --json` to decide whether the system is GUI-capable and to discover `skill_root_candidates`; after the user confirms a candidate and chooses GUI, run `python -m weex_tg_bot gui-install --accept-managed-runtime` in the background when dependencies are missing, then launch `python -m weex_tg_bot gui --language auto`.
-- CLI: `doctor`, `gui-preflight`, `gui-install`, `config set`, `config add-group`, `config add-task`, `config remove-group`, `config clear-token`, `config show`, `test-telegram`, `send`, `send-result`, and `run`. `send-result` always requires an explicit `--bot-name` and `--chat-id`; `run --once` executes every enabled task schedule immediately.
+- CLI: `doctor`, `gui-preflight`, `gui-install`, `config set`, `config add-group`, `config add-task`, `config find`, `config remove-bot`, `config remove-group`, `config clear-token`, `config show`, `test-telegram`, `send`, `send-result`, and `run`. `config find bot [QUERY]` searches Bot names; `config find group [QUERY]` searches group names and Chat IDs. `send-result` always requires an explicit `--bot-name` and `--chat-id`; `run --once` executes every enabled task schedule immediately.
 - Agent-assisted setup: offer to run the CLI configuration directly; require a
   custom Bot name, Bot token, standalone group name/Chat ID, and one or more
   independently named push tasks with profile/query. The token may come through
@@ -349,6 +349,11 @@ Use Decimal arithmetic. Reject missing fields, invalid/negative amounts, unknown
   maintains the standalone group catalog); use `config add-task` or the GUI
   task page for profile/query/schedules.
   The SQLite database is the source of truth; there is no JSON migration path.
+  The GUI Overview supports case-insensitive lookup by Bot name, group name, or
+  Chat ID. Deleting a Bot removes its push tasks; deleting a standalone group
+  removes every task targeting that Chat ID. The group catalog columns are limited
+  to group name and Chat ID; profile, query, language, and schedules are task
+  fields.
 - Task query controls: derive coin/product suggestions from the confirmed
   official Partner field catalog at runtime, but do not enforce a local enum;
   pass user-entered values to the official Partner skill for validation. Load

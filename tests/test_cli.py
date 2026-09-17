@@ -1,7 +1,10 @@
 import unittest
 from datetime import datetime, timezone
+from io import StringIO
+import json
+from unittest.mock import patch
 
-from weex_tg_bot.cli import _binding_from_args, _scheduled_bots, build_parser
+from weex_tg_bot.cli import _binding_from_args, _config_find, _scheduled_bots, build_parser
 from weex_tg_bot.models import AppConfig, BotConfig, GroupConfig, PushTaskConfig, QueryConfig, ScheduleConfig
 
 
@@ -61,6 +64,30 @@ class CliTests(unittest.TestCase):
         )
         group = _binding_from_args(args)
         self.assertEqual(group.chat_id, "-1001")
+
+    def test_config_parser_supports_bot_and_group_management(self):
+        remove_bot = build_parser().parse_args(["config", "remove-bot", "ops"])
+        self.assertEqual(remove_bot.config_command, "remove-bot")
+        self.assertEqual(remove_bot.bot_name, "ops")
+
+        find_group = build_parser().parse_args(["config", "find", "group", "运营"])
+        self.assertEqual(find_group.config_command, "find")
+        self.assertEqual(find_group.kind, "group")
+        self.assertEqual(find_group.query, "运营")
+
+    def test_config_find_filters_groups_by_name_or_chat_id(self):
+        args = build_parser().parse_args(["config", "find", "group", "1002"])
+        fake_store = unittest.mock.Mock()
+        fake_store.display.return_value = {
+            "groups": [
+                {"group_name": "运营群", "chat_id": "-1001"},
+                {"group_name": "Ops", "chat_id": "-1002"},
+            ],
+            "bots": [],
+        }
+        with patch("weex_tg_bot.cli._store", return_value=fake_store), patch("sys.stdout", new_callable=StringIO) as output:
+            self.assertEqual(_config_find(args), 0)
+        self.assertEqual(json.loads(output.getvalue())["groups"], [{"group_name": "Ops", "chat_id": "-1002"}])
 
     def test_send_result_requires_explicit_binding(self):
         with self.assertRaises(SystemExit):

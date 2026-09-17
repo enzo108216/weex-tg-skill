@@ -80,6 +80,12 @@ BUILTIN_TRANSLATIONS: dict[str, dict[str, str]] = {
         "new_task": "新建推送任务",
         "edit_task": "编辑推送任务",
         "save_task": "保存推送任务",
+        "search_bot": "搜索 Bot",
+        "search_group": "搜索群组",
+        "delete_bot": "删除 Bot",
+        "delete_group": "删除群组",
+        "delete_bot_confirm": "确定删除 Bot「{name}」及其推送任务吗？",
+        "delete_group_confirm": "确定删除群组「{name}」及其关联推送任务吗？",
         "refresh": "刷新",
         "use_detected": "使用发现路径",
         "detected_skill": "AI 发现的 skill 路径",
@@ -209,6 +215,12 @@ BUILTIN_TRANSLATIONS: dict[str, dict[str, str]] = {
         "new_task": "New push task",
         "edit_task": "Edit push task",
         "save_task": "Save push task",
+        "search_bot": "Search Bots",
+        "search_group": "Search groups",
+        "delete_bot": "Delete Bot",
+        "delete_group": "Delete group",
+        "delete_bot_confirm": "Delete Bot '{name}' and its push tasks?",
+        "delete_group_confirm": "Delete group '{name}' and its push tasks?",
         "refresh": "Refresh",
         "use_detected": "Use detected path",
         "detected_skill": "Skill path discovered by AI",
@@ -306,6 +318,25 @@ def detect_language(requested: str | None = None) -> str:
 
 def text_for(key: str, language: str = "en", **values: Any) -> str:
     return translate(TRANSLATIONS, language, key, **values)
+
+
+GROUP_OVERVIEW_COLUMNS = ("group", "chat")
+GROUP_OVERVIEW_HEADINGS = {"group": "group_name", "chat": "chat_id"}
+
+
+def _matches_search(query: str, *values: str) -> bool:
+    needle = str(query or "").strip().casefold()
+    return not needle or any(needle in str(value or "").casefold() for value in values)
+
+
+def filter_bots(bots: tuple[BotConfig, ...] | list[BotConfig], query: str) -> tuple[BotConfig, ...]:
+    """Return Bots whose display name matches a case-insensitive query."""
+    return tuple(bot for bot in bots if _matches_search(query, bot.name))
+
+
+def filter_groups(groups: tuple[GroupConfig, ...] | list[GroupConfig], query: str) -> tuple[GroupConfig, ...]:
+    """Return groups matching either their name or Chat ID."""
+    return tuple(group for group in groups if _matches_search(query, group.label, group.chat_id))
 
 
 WINDOW_KEYS = {"1d": "window_1d", "1w": "window_1w", "1m": "window_1m", "1y": "window_1y"}
@@ -434,6 +465,8 @@ class ConfigWindow(tk.Tk):
         self.bot_edit_skill_root = tk.StringVar(value=config.skill_root)
         self.group_bot_choice = tk.StringVar(value=first_bot.name if first_bot else "")
         self.group_choice = tk.StringVar(value=(first_group.label or first_group.chat_id) if first_group else "")
+        self.bot_search = tk.StringVar()
+        self.group_search = tk.StringVar()
         self.task_bot_choice = tk.StringVar(value=first_bot.name if first_bot else "")
         self.task_group_choice = tk.StringVar(value=(first_group.label or first_group.chat_id) if first_group else "")
         self.task_name = tk.StringVar(value="")
@@ -545,6 +578,13 @@ class ConfigWindow(tk.Tk):
         panes.add(bot_frame, weight=1)
         panes.add(group_frame, weight=3)
 
+        bot_search_row = ttk.Frame(bot_frame)
+        bot_search_row.pack(fill="x", pady=(0, 8))
+        self._label(bot_search_row, "search_bot").pack(side="left", padx=(0, 8))
+        bot_search_entry = ttk.Entry(bot_search_row, textvariable=self.bot_search)
+        bot_search_entry.pack(side="left", fill="x", expand=True)
+        bot_search_entry.bind("<KeyRelease>", lambda _event: self._refresh_all())
+
         self.bot_tree = ttk.Treeview(bot_frame, columns=("bot", "groups", "token"), show="headings", selectmode="browse")
         self._bot_headings = {"bot": "bot_name", "groups": "groups_count", "token": "token_state"}
         for column, key in self._bot_headings.items():
@@ -554,21 +594,21 @@ class ConfigWindow(tk.Tk):
         self.bot_tree.bind("<<TreeviewSelect>>", self._on_bot_overview_select)
         self.bot_tree.bind("<Double-1>", lambda _event: self._edit_bot_selected())
 
+        group_search_row = ttk.Frame(group_frame)
+        group_search_row.pack(fill="x", pady=(0, 8))
+        self._label(group_search_row, "search_group").pack(side="left", padx=(0, 8))
+        group_search_entry = ttk.Entry(group_search_row, textvariable=self.group_search)
+        group_search_entry.pack(side="left", fill="x", expand=True)
+        group_search_entry.bind("<KeyRelease>", lambda _event: self._refresh_all())
+
         self.group_tree = ttk.Treeview(
-            group_frame, columns=("bot", "group", "chat", "profile", "schedule"), show="headings", selectmode="browse"
+            group_frame, columns=GROUP_OVERVIEW_COLUMNS, show="headings", selectmode="browse"
         )
-        self._group_headings = {
-            "bot": "bot_name",
-            "group": "group_name",
-            "chat": "chat_id",
-            "profile": "profile",
-            "schedule": "schedules",
-        }
+        self._group_headings = GROUP_OVERVIEW_HEADINGS
         for column, key in self._group_headings.items():
             self.group_tree.heading(column, text=text_for(key, self._language))
             self.group_tree.column(column, width=150, anchor="w")
         self.group_tree.column("chat", width=130)
-        self.group_tree.column("schedule", width=210)
         self.group_tree.bind("<Double-1>", lambda _event: self._edit_group_selected())
         self._group_scroll = ttk.Scrollbar(group_frame, orient="vertical", command=self.group_tree.yview)
         self.group_tree.configure(yscrollcommand=self._group_scroll.set)
@@ -579,8 +619,10 @@ class ConfigWindow(tk.Tk):
         actions.pack(fill="x", pady=(14, 0))
         self._button(actions, "new_bot", self._new_bot).pack(side="left")
         self._button(actions, "edit_bot", self._edit_bot_selected).pack(side="left", padx=(8, 0))
+        self._button(actions, "delete_bot", self._delete_bot_selected).pack(side="left", padx=(8, 0))
         self._button(actions, "new_group", self._new_group).pack(side="left", padx=(18, 0))
         self._button(actions, "edit_group", self._edit_group_selected).pack(side="left", padx=(8, 0))
+        self._button(actions, "delete_group", self._delete_group_selected).pack(side="left", padx=(8, 0))
         self._button(actions, "refresh", self._refresh_all).pack(side="left")
 
     def _build_bots(self) -> None:
@@ -726,9 +768,10 @@ class ConfigWindow(tk.Tk):
 
     def _refresh_all(self) -> None:
         config = self.store.load()
-        groups = list(config.groups)
+        bots = filter_bots(config.bots, self.bot_search.get())
+        groups = self._visible_groups(config)
         self._overview_values["bots"].configure(text=str(len(config.bots)))
-        self._overview_values["bindings"].configure(text=str(len(groups)))
+        self._overview_values["bindings"].configure(text=str(len(config.groups)))
         self._overview_values["schedules"].configure(text=str(sum(len(task.schedules) for task in config.tasks)))
         self._overview_values["skill_root"].configure(
             text=text_for("ready", self._language) if config.skill_root else text_for("not_configured", self._language)
@@ -739,7 +782,7 @@ class ConfigWindow(tk.Tk):
             for item in tree.get_children():
                 tree.delete(item)
         self._bot_keys.clear()
-        for bot in config.bots:
+        for bot in bots:
             task_count = sum(1 for task in config.tasks if task.bot_name == bot.name)
             item = self.bot_tree.insert(
                 "", "end", values=(bot.name, task_count, text_for("configured", self._language) if bot.token else text_for("missing", self._language))
@@ -768,14 +811,24 @@ class ConfigWindow(tk.Tk):
         self._group_keys.clear()
         for group in groups:
             label = group.label or group.chat_id
-            task_count = sum(1 for task in self.store.load().tasks if task.chat_id == group.chat_id)
-            item = self.group_tree.insert("", "end", values=("", label, group.chat_id, text_for("task_count", self._language, count=task_count), ""))
+            item = self.group_tree.insert("", "end", values=(label, group.chat_id))
             self._group_keys[item] = ("", group.chat_id)
+
+    def _visible_groups(self, config: AppConfig) -> list[GroupConfig]:
+        groups = list(filter_groups(config.groups, self.group_search.get()))
+        if not self._overview_bot_filter:
+            return groups
+        bot = next((item for item in config.bots if item.name == self._overview_bot_filter), None)
+        if bot is None:
+            self._overview_bot_filter = None
+            return groups
+        chat_ids = {group.chat_id for group in bot.groups}
+        return [group for group in groups if group.chat_id in chat_ids]
 
     def _on_bot_overview_select(self, _event: Any = None) -> None:
         selected = self.bot_tree.selection()
-        self._overview_bot_filter = None
-        self._render_group_tree(list(self.store.load().groups))
+        self._overview_bot_filter = self._bot_keys.get(selected[0]) if selected else None
+        self._render_group_tree(self._visible_groups(self.store.load()))
 
     def _update_bot_selectors(self, config: AppConfig) -> None:
         names = [bot.name for bot in config.bots]
@@ -822,6 +875,21 @@ class ConfigWindow(tk.Tk):
             return
         bot = next(bot for bot in self.store.load().bots if bot.name == name)
         BotDialog(self, self.store, language=self._language, bot=bot, candidates=self._skill_candidates)
+        self._refresh_all()
+
+    def _delete_bot_selected(self) -> None:
+        name = self._selected_bot_name()
+        if not name:
+            messagebox.showinfo(text_for("bots_tab", self._language), text_for("select_binding", self._language))
+            return
+        if not messagebox.askyesno(
+            text_for("delete_bot", self._language),
+            text_for("delete_bot_confirm", self._language, name=name),
+        ):
+            return
+        self.store.remove_bot(name)
+        if self._overview_bot_filter == name:
+            self._overview_bot_filter = None
         self._refresh_all()
 
     def _save_bot(self) -> bool:
@@ -886,6 +954,24 @@ class ConfigWindow(tk.Tk):
         _bot_name, chat_id = key
         group = next(group for group in self.store.load().groups if group.chat_id == chat_id)
         GroupDialog(self, self.store, language=self._language, group=group)
+        self._refresh_all()
+
+    def _delete_group_selected(self) -> None:
+        key = self._selected_group_key()
+        if not key:
+            messagebox.showinfo(text_for("groups_tab", self._language), text_for("select_binding", self._language))
+            return
+        _bot_name, chat_id = key
+        group = next((item for item in self.store.load().groups if item.chat_id == chat_id), None)
+        if group is None:
+            return
+        label = group.label or group.chat_id
+        if not messagebox.askyesno(
+            text_for("delete_group", self._language),
+            text_for("delete_group_confirm", self._language, name=label),
+        ):
+            return
+        self.store.remove_group(chat_id)
         self._refresh_all()
 
     def _load_group(self, group: GroupConfig) -> None:

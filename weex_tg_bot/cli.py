@@ -107,6 +107,24 @@ def _config_group(args: argparse.Namespace) -> int:
     return 0
 
 
+def _config_find(args: argparse.Namespace) -> int:
+    display = _store().display()
+    query = str(args.query or "").casefold()
+    if args.kind == "bot":
+        matches = [item for item in display["bots"] if query in str(item["name"]).casefold()]
+        payload = {"bots": matches}
+    else:
+        matches = [
+            item
+            for item in display["groups"]
+            if query in str(item.get("group_name") or item.get("label") or "").casefold()
+            or query in str(item["chat_id"]).casefold()
+        ]
+        payload = {"groups": matches}
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    return 0
+
+
 def _config_task(args: argparse.Namespace) -> int:
     store = _store()
     config = store.load()
@@ -214,6 +232,11 @@ def build_parser() -> argparse.ArgumentParser:
     _add_binding_args(add, chat_positional=True)
     add.set_defaults(handler=_config_group)
 
+    find = config_sub.add_parser("find", help="find Bots or standalone groups")
+    find.add_argument("kind", choices=("bot", "group"))
+    find.add_argument("query", nargs="?", default="")
+    find.set_defaults(handler=_config_find)
+
     task = config_sub.add_parser("add-task", help="create an independent push task for an existing Bot/group")
     task.add_argument("chat_id")
     task.add_argument("--bot", "--bot-name", dest="bot", default="main", metavar="BOT_NAME")
@@ -232,9 +255,13 @@ def build_parser() -> argparse.ArgumentParser:
     task.add_argument("--allow-plaintext-token", action="store_true")
     task.set_defaults(handler=_config_task)
 
-    remove = config_sub.add_parser("remove-group")
+    remove = config_sub.add_parser("remove-group", help="delete a standalone group and its push tasks")
     remove.add_argument("chat_id")
     remove.set_defaults(handler=lambda args: (_store().remove_group(args.chat_id) or print("group removed") or 0))
+
+    remove_bot = config_sub.add_parser("remove-bot", help="delete a Bot and its push tasks")
+    remove_bot.add_argument("bot_name")
+    remove_bot.set_defaults(handler=lambda args: (_store().remove_bot(args.bot_name) or print("Bot removed") or 0))
 
     clear = config_sub.add_parser("clear-token", help="remove the stored Telegram token")
     clear.add_argument("--bot", "--bot-name", dest="bot", default="main", metavar="BOT_NAME")

@@ -55,7 +55,11 @@ python -m weex_tg_bot config add-group -1001234567892 --group-name "运维群"
 python -m weex_tg_bot config add-task -1001234567892 --bot-name ops \
   --task-name "运维返佣" --profile account-ops --all-confirmed
 python -m weex_tg_bot config show
+python -m weex_tg_bot config find bot rebates
+python -m weex_tg_bot config find group 返佣
 python -m weex_tg_bot config clear-token --bot-name ops
+python -m weex_tg_bot config remove-bot ops
+python -m weex_tg_bot config remove-group -1001234567891
 python -m weex_tg_bot test-telegram --bot-name rebates --chat-id -1001234567890
 
 # 手动交付必须明确选择目标 Bot/群组；send-result 只接收完整 Partner 结果
@@ -72,6 +76,8 @@ python -m weex_tg_bot gui --language auto
 ```
 
 `config add-group` 只维护群组目录；推送任务必须绑定已经存在的 Bot/群组关联。GUI 是创建 Bot、关联群组和推送任务的一站式入口；CLI 的 `add-task` 用于给已有目标补充独立任务。
+
+GUI 概览页支持按 Bot 名称、群名称或 Chat ID 查找，也可以删除选中的 Bot 或群组；删除 Bot 会同时删除其推送任务，删除群组会删除所有指向该 Chat ID 的推送任务。群组目录列只显示群名称和 Chat ID，profile、查询口径和定时设置属于推送任务列。
 
 手动推送不是“发现已有配置就立即发送”。Agent 收到非定时推送请求时，必须先询问执行模式：
 

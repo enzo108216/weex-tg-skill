@@ -1,7 +1,20 @@
 import unittest
 
-from weex_tg_bot.gui import detect_language, filter_timezones, merge_schedule_entries, period_label, remap_task_chat_id, resolve_push_times, resolve_timezone_query, text_for
-from weex_tg_bot.models import PushTaskConfig
+from weex_tg_bot.gui import (
+    GROUP_OVERVIEW_COLUMNS,
+    GROUP_OVERVIEW_HEADINGS,
+    detect_language,
+    filter_bots,
+    filter_groups,
+    filter_timezones,
+    merge_schedule_entries,
+    period_label,
+    remap_task_chat_id,
+    resolve_push_times,
+    resolve_timezone_query,
+    text_for,
+)
+from weex_tg_bot.models import BotConfig, GroupConfig, PushTaskConfig
 from weex_tg_bot.i18n import is_rtl, normalize_locale, translate
 
 
@@ -25,6 +38,17 @@ class GuiLanguageTests(unittest.TestCase):
         self.assertEqual(filter_timezones(values, "LONDON"), ("Europe/London",))
         self.assertEqual(filter_timezones(values, ""), values)
         self.assertEqual(resolve_timezone_query(values, "UTC", "Shanghai"), "Asia/Shanghai")
+
+    def test_bot_and_group_search_matches_display_fields(self):
+        bots = (BotConfig("Rebates"), BotConfig("Operations"))
+        groups = (GroupConfig("-1001", label="运营群"), GroupConfig("-1002", label="Ops"))
+        self.assertEqual(tuple(bot.name for bot in filter_bots(bots, "reb")), ("Rebates",))
+        self.assertEqual(tuple(group.chat_id for group in filter_groups(groups, "1002")), ("-1002",))
+        self.assertEqual(tuple(group.chat_id for group in filter_groups(groups, "运营")), ("-1001",))
+
+    def test_group_overview_uses_standalone_catalog_columns(self):
+        self.assertEqual(GROUP_OVERVIEW_COLUMNS, ("group", "chat"))
+        self.assertEqual(GROUP_OVERVIEW_HEADINGS, {"group": "group_name", "chat": "chat_id"})
 
     def test_editing_single_push_time_replaces_the_default_time(self):
         self.assertEqual(resolve_push_times(("09:00",), "09:00", "10:30"), ("10:30",))

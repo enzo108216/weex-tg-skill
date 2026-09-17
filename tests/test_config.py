@@ -142,6 +142,38 @@ class ConfigTests(unittest.TestCase):
             self.assertNotIn("111:alpha", shown)
             self.assertNotIn("222:beta", shown)
 
+    def test_remove_bot_deletes_its_tasks_but_keeps_standalone_groups(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = ConfigStore(Path(directory), keyring_backend=None)
+            group = binding("-1001", "profile-a")
+            store.set_token("111:alpha", bot_name="alpha", allow_plaintext=True)
+            store.upsert_group(group, bot_name="alpha")
+            store.set_token("222:beta", bot_name="beta", allow_plaintext=True)
+            store.upsert_group(group, bot_name="beta")
+
+            store.remove_bot("alpha")
+
+            config = store.load()
+            self.assertEqual([bot.name for bot in config.bots], ["beta"])
+            self.assertEqual([task.bot_name for task in config.tasks], ["beta"])
+            self.assertEqual([item.chat_id for item in config.groups], ["-1001"])
+
+    def test_remove_group_deletes_all_tasks_for_the_standalone_group(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = ConfigStore(Path(directory), keyring_backend=None)
+            group = binding("-1001", "profile-a")
+            store.set_token("111:alpha", bot_name="alpha", allow_plaintext=True)
+            store.upsert_group(group, bot_name="alpha")
+            store.set_token("222:beta", bot_name="beta", allow_plaintext=True)
+            store.upsert_group(group, bot_name="beta")
+
+            store.remove_group("-1001")
+
+            config = store.load()
+            self.assertEqual(config.groups, ())
+            self.assertEqual(config.tasks, ())
+            self.assertEqual([bot.name for bot in config.bots], ["alpha", "beta"])
+
     def test_keyring_keeps_tokens_out_of_sqlite(self):
         with tempfile.TemporaryDirectory() as directory:
             keyring = MemoryKeyring()
