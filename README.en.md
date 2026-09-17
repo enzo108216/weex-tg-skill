@@ -123,7 +123,9 @@ The GUI opens on an information-first Overview, a Push tasks area, and Help.
 The Overview manages searchable Bot and standalone group lists; Bot/group edits
 are modal dialogs. The Push tasks area owns Bot/group target selection, profile,
 query, language, schedules, Telegram testing, and immediate sending. While the
-window is open it runs the in-process scheduler; closing the window stops it.
+window is open it participates in the shared scheduler lock; if a headless
+`run` or autostart scheduler already owns the lock, the GUI stays usable and
+skips starting a second scheduler. Closing the window stops its own scheduler.
 On a headless host, use `run` instead.
 
 ```bash

@@ -72,6 +72,36 @@ Use `recommendation=gui` as a ready-to-launch hint, and
 background managed-runtime install. The recommendation is subordinate to the
 GUI-capability check and the user's route choice.
 
+## Optional startup integration
+
+Loading this skill is read-only. After loading, inspect the environment with
+`python -m weex_tg_bot doctor --json` and inspect existing launch integration
+with `python -m weex_tg_bot startup status`; do not start `run`, write a
+system-startup entry, or create a desktop file merely because the skill was
+discovered by an AI tool.
+
+After an enabled scheduled task exists, offer one explicit startup choice at a
+time:
+
+- **User autostart**: `python -m weex_tg_bot startup install --target autostart --confirm`.
+  This writes a user-level launch entry (macOS LaunchAgent, Windows Startup
+  script, or Linux XDG autostart entry) that starts the headless `run` scheduler
+  at the next login. It does not run the scheduler immediately.
+- **Desktop launcher**: only when `doctor --json` reports `gui_capable=true`,
+  use `python -m weex_tg_bot startup install --target desktop --confirm`.
+  The generated launcher opens the GUI; the GUI scheduler runs while that
+  window remains open only when it owns the shared scheduler lock. On a
+  non-GUI host, route to user autostart instead.
+- **No persistence**: leave the configuration saved and let the user start
+  `python -m weex_tg_bot run` manually when desired.
+
+The `--confirm` flag is mandatory for install/remove operations. Never silently
+convert a skill load or a normal Telegram configuration write into a persistent
+OS startup mutation. To remove an entry, require a separate confirmation and
+run `python -m weex_tg_bot startup remove --target autostart --confirm` or the
+same command with `--target desktop`. `startup status` is always safe to run
+without confirmation.
+
 The TG configuration GUI (`python -m weex_tg_bot gui --language auto`) is separate from the
 WEEX account/profile manager supplied by `weex-trader-skill`. A request to open
 the WEEX account manager follows that skill's GUI/runtime rules and does not
@@ -97,6 +127,20 @@ missing after combining the current turn with earlier context.
 
 ### 1. Preflight and route authorization
 
+Before creating or changing any Bot, group, task, schedule, or Partner query,
+resolve the delivery mode when the user has only said “推送返佣到 TG” (or an
+equivalent ambiguous request). Ask one standalone question:
+
+1. **添加定时任务**：保存一个独立 task，包含 Bot/群组、profile、query、语言和 schedule。
+2. **单次使用**：只执行一次已配置 task 或一次临时查询，不创建或修改定时 task。
+
+Do not infer “添加任务” from the existence of a schedule, a prior task, or a
+general request to push. Do not query Partner, send Telegram, or write partial
+configuration until the user chooses one mode. If the user explicitly says
+“添加定时任务” or “单次发送”, reuse that choice and continue. For single-use
+delivery, follow the manual mode selection in section 5 and keep task storage
+unchanged.
+
 Run `python -m weex_tg_bot doctor --json` first. Present the GUI/CLI/agent route
 and its side effect. A direct “帮我配置/启用/修复” request authorizes the
 configuration write, but not a test message unless the user asks for one. A GUI
@@ -106,12 +150,12 @@ choice authorizes the managed GUI runtime installation described above.
 
 The assistant must keep configuration conversational and incremental:
 
-1. **Inspect before asking.** Run `config show`/`config find` and read-only
+1. **Inspect before asking.** After the delivery mode is known, run `config show`/`config find` and read-only
    discovery first. Present existing Bots, groups, profiles, Partner products,
    and UID candidates when available; do not ask the user to retype known data.
-2. **One decision per turn.** Ask for at most one selection or one missing value
-   at a time: route → Bot → group → WEEX profile → query scope/products →
-   language → schedule → final review. If a value is already unambiguous and
+2. **One decision per turn.** For task creation, ask for at most one selection or one missing value
+   at a time: delivery mode → route → Bot → group → WEEX profile → query scope/products →
+   language → schedule → final review → service startup method. If a value is already unambiguous and
    the user has authorized configuration, reuse it only after stating it.
 3. **Route missing capabilities.** No saved WEEX profile means follow
    `$weex-trader-skill`; no Partner catalog/UID/query capability means follow
@@ -222,10 +266,55 @@ currently configured. First ask the user to choose one of these modes:
 Do not query Partner or send to Telegram until the mode and all required
 parameters are confirmed. After confirmation, use `send-result` with an
    explicit `--bot-name` and `--chat-id` for the selected task. For unattended
- schedules, explain that the GUI starts its own background scheduler while the
- window is open; headless hosts must keep `python -m weex_tg_bot run` running
- (or launch it through the host OS). `run --once` executes all enabled schedule
- entries immediately.
+ schedules, explain that the GUI and headless entry points share a cross-process
+ scheduler lock. The GUI can stay open while `python -m weex_tg_bot run` (or an
+ autostart entry) owns the scheduler; in that case the GUI skips its own
+ scheduler. A second headless `run` exits without starting another loop.
+ `run --once` executes all enabled schedule entries immediately.
+
+### 6. Activate a scheduled task
+
+After a task with one or more schedules is written and `config show` verifies it,
+the task is **not active merely because it was saved**. Explain that a scheduler
+service/process must be running for the schedule to take effect, then run the
+read-only `doctor --json` and `startup status` checks again. Ask the user to
+choose exactly one startup method based on those facts:
+
+1. **当前打开 GUI** (only when `gui_capable=true`): with explicit confirmation,
+   launch `python -m weex_tg_bot gui --language auto`; the GUI scheduler runs
+   while the window is open if no other scheduler owns the shared lock.
+2. **登录后自动运行**: with explicit confirmation, install the user-level entry
+   using `python -m weex_tg_bot startup install --target autostart --confirm`.
+   It starts at the next login and does not start the scheduler immediately.
+3. **桌面启动器** (only when `gui_capable=true`): with explicit confirmation,
+   run `python -m weex_tg_bot startup install --target desktop --confirm`, then
+   tell the user to open the generated launcher. Creating the file does not
+   launch the GUI.
+4. **手动运行**: provide `python -m weex_tg_bot run`; only start it on the
+   user's behalf after a separate explicit request to start the service now.
+5. **暂不启用**: keep the task saved but clearly mark it inactive until a
+   scheduler is started.
+
+If the user chooses a startup method, complete that method in the same flow and
+report its result/path. Never silently choose autostart, launch GUI, or start
+`run` after task creation. If no schedule was saved, skip this activation step.
+
+Explain these operational notes every time a scheduled task is activated:
+
+- GUI, autostart, desktop launchers, and manual `run` share one cross-process
+  scheduler lock. They may be used together: the first process that acquires
+  the lock schedules, while GUI skips its scheduler and a second `run` exits
+  cleanly. The lock is released automatically when the owner exits.
+- Closing the GUI stops its scheduler. User autostart takes effect on the next
+  login; installing it does not run now.
+- `run --once` executes enabled schedules immediately and is not a harmless
+  health check; treat it as an actual push and require separate confirmation.
+- The saved profile and Partner environment still govern the data source; a
+  test profile is not production data. Use `config show` and `startup status`
+  when diagnosing a missed push.
+- To disable a startup entry, use `startup remove --target ... --confirm`; to
+  stop an already running manual service, stop that process (Ctrl-C/service
+  manager) before removing its launcher.
 
 If any Partner query, range segment, aggregation, Telegram send, or ledger write
 fails, keep the operation fail-closed and report which binding/window was
@@ -369,7 +458,7 @@ Use Decimal arithmetic. Reject missing fields, invalid/negative amounts, unknown
   Persian apply RTL text direction automatically. GUI labels and Telegram formatter
   copy are loaded from the same catalog, and each push task persists its language.
 - GUI preflight/install: use `doctor --json` to decide whether the system is GUI-capable and expose `skill_root_candidates`; before either `gui-install` or `gui`, automatically persist a unique valid candidate from the current AI tool's skill roots, stop on ambiguity/missing candidates, then run `python -m weex_tg_bot gui-install --accept-managed-runtime` in the background when dependencies are missing, and finally launch `python -m weex_tg_bot gui --language auto`.
-- CLI: `doctor`, `gui-preflight`, `gui-install`, `config set`, `config add-group`, `config add-task`, `config find`, `config remove-bot`, `config remove-group`, `config clear-token`, `config show`, `test-telegram`, `send`, `send-result`, and `run`. `config find bot [QUERY]` searches Bot names; `config find group [QUERY]` searches group names and Chat IDs. `send-result` always requires an explicit `--bot-name` and `--chat-id`; `run --once` executes every enabled task schedule immediately.
+- CLI: `doctor`, `gui-preflight`, `gui-install`, `config set`, `config add-group`, `config add-task`, `config find`, `config remove-bot`, `config remove-group`, `config clear-token`, `config show`, `test-telegram`, `send`, `send-result`, `run`, and `startup status|install|remove`. `config find bot [QUERY]` searches Bot names; `config find group [QUERY]` searches group names and Chat IDs. `send-result` always requires an explicit `--bot-name` and `--chat-id`; `run --once` executes every enabled task schedule immediately and must not be used as a silent startup probe.
 - Agent-assisted setup: offer to run the CLI configuration directly; require a
   custom Bot name, Bot token, standalone group name/Chat ID, and one or more
   independently named push tasks with profile/query. The token may come through

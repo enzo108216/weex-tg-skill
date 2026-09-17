@@ -1,6 +1,6 @@
 interface:
   display_name: "WEEX Telegram Push"
   short_description: "Push WEEX rebates to Telegram"
-  default_prompt: "Use $weex-tg-skill with $weex-partner-skill to send a complete daily WEEX rebate summary to Telegram."
+  default_prompt: "Use $weex-tg-skill with $weex-partner-skill; first clarify one-time delivery versus adding a scheduled task, then configure and activate any scheduler only after explicit confirmation."
 policy:
   allow_implicit_invocation: true

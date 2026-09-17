@@ -7,12 +7,27 @@ from pathlib import Path
 import tempfile
 from unittest.mock import patch
 
-from weex_tg_bot.cli import _binding_from_args, _config_find, _config_set, _config_task, _gui_install, _prepare_gui_skill_root, _scheduled_bots, build_parser
+from weex_tg_bot.cli import _binding_from_args, _config_find, _config_set, _config_task, _gui_install, _prepare_gui_skill_root, _run, _scheduled_bots, _startup_install, build_parser
 from weex_tg_bot.config import ConfigStore
 from weex_tg_bot.models import AppConfig, BotConfig, GroupConfig, PushTaskConfig, QueryConfig, ScheduleConfig
 
 
 class CliTests(unittest.TestCase):
+    def test_startup_parser_requires_explicit_confirmation_for_install(self):
+        args = build_parser().parse_args(["startup", "install", "--target", "autostart", "--confirm"])
+        self.assertEqual(args.startup_command, "install")
+        self.assertEqual(args.target, "autostart")
+        self.assertTrue(args.confirm)
+
+    def test_startup_parser_defaults_desktop_launcher_to_gui_mode(self):
+        args = build_parser().parse_args(["startup", "install", "--target", "desktop", "--confirm"])
+        self.assertEqual(args.command_mode, "gui")
+
+    def test_startup_install_refuses_without_explicit_confirmation(self):
+        args = build_parser().parse_args(["startup", "install", "--target", "autostart"])
+        with self.assertRaisesRegex(ValueError, "require --confirm"):
+            _startup_install(args)
+
     def test_gui_accepts_explicit_language(self):
         args = build_parser().parse_args(["gui", "--language", "en"])
         self.assertEqual(args.language, "en")
@@ -205,6 +220,19 @@ class CliTests(unittest.TestCase):
         config = AppConfig(bots=(BotConfig("main", "token", (GroupConfig("-1001", label="群"),)),), tasks=(task,))
         due = _scheduled_bots(config, datetime(2026, 9, 16, 1, 0, tzinfo=timezone.utc))
         self.assertEqual([group.chat_id for group in due[0].groups], ["-1001"])
+
+    def test_run_skips_when_another_scheduler_instance_holds_lock(self):
+        args = build_parser().parse_args(["run"])
+        store = unittest.mock.Mock()
+        with patch("weex_tg_bot.cli._store", return_value=store), patch(
+            "weex_tg_bot.cli._scheduled_tasks", return_value=(object(),)
+        ), patch("weex_tg_bot.cli.SchedulerInstanceLock") as lock_factory, patch(
+            "weex_tg_bot.cli.time.sleep"
+        ) as sleep, patch("sys.stdout", new_callable=StringIO) as output:
+            lock_factory.return_value.acquire.return_value = False
+            self.assertEqual(_run(args), 0)
+        self.assertIn("already active", output.getvalue())
+        sleep.assert_not_called()
 
     def test_scheduler_preserves_task_language_for_scheduled_formatter(self):
         from weex_tg_bot.cli import _scheduled_tasks

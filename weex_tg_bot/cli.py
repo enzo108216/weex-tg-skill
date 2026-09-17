@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
+import platform
 import sys
 import time
 import uuid
@@ -19,7 +20,9 @@ from .models import AppConfig, BotConfig, GroupConfig, PushTaskConfig, QueryConf
 from .partner import PartnerClient, records_from_partner_envelopes
 from .periods import previous_natural_period
 from .runtime import ensure_managed_runtime, build_runtime_preflight, reexec_under_managed_runtime
+from .scheduler_guard import SchedulerInstanceLock
 from .service import RebateService
+from .startup import install_launcher, launcher_path, remove_launcher
 from .telegram import TelegramSender
 
 
@@ -333,6 +336,20 @@ def build_parser() -> argparse.ArgumentParser:
     doctor = sub.add_parser("doctor", help="detect OS/GUI/keyring readiness and recommend GUI or CLI")
     doctor.add_argument("--json", action="store_true", dest="as_json")
     doctor.set_defaults(handler=_doctor)
+
+    startup = sub.add_parser("startup", help="inspect or install user-level startup integration")
+    startup_sub = startup.add_subparsers(dest="startup_command", required=True)
+    startup_status = startup_sub.add_parser("status", help="show startup and desktop launcher status")
+    startup_status.set_defaults(handler=_startup_status)
+    startup_install = startup_sub.add_parser("install", help="install a user-level autostart or desktop launcher")
+    startup_install.add_argument("--target", choices=("autostart", "desktop"), required=True)
+    startup_install.add_argument("--mode", dest="command_mode", choices=("scheduler", "gui"), default="gui")
+    startup_install.add_argument("--confirm", action="store_true", help="confirm persistent user-level file creation")
+    startup_install.set_defaults(handler=_startup_install)
+    startup_remove = startup_sub.add_parser("remove", help="remove a user-level autostart or desktop launcher")
+    startup_remove.add_argument("--target", choices=("autostart", "desktop"), required=True)
+    startup_remove.add_argument("--confirm", action="store_true", help="confirm removal of the launcher file")
+    startup_remove.set_defaults(handler=_startup_remove)
     return parser
 
 
@@ -488,17 +505,24 @@ def _run(args: argparse.Namespace) -> int:
         return 0 if all(code == 0 for code in codes) else 2
     if not _scheduled_tasks(config):
         raise ValueError("no scheduled push tasks are enabled; add a task with config add-task and --schedule")
+    scheduler_lock = SchedulerInstanceLock()
+    if not scheduler_lock.acquire():
+        print("scheduler already active; not starting another scheduler")
+        return 0
     print("scheduler active with per-task timezone schedules and natural periods; press Ctrl-C to stop")
-    last_key = None
-    while True:
-        now = datetime.now(timezone.utc)
-        key = f"{now.date().isoformat()} {now.strftime('%H:%M')}"
-        due = _scheduled_tasks(config, now)
-        if due and key != last_key:
-            for task in due:
-                _send_scheduled_task(store, task, now)
-            last_key = key
-        time.sleep(20)
+    try:
+        last_key = None
+        while True:
+            now = datetime.now(timezone.utc)
+            key = f"{now.date().isoformat()} {now.strftime('%H:%M')}"
+            due = _scheduled_tasks(config, now)
+            if due and key != last_key:
+                for task in due:
+                    _send_scheduled_task(store, task, now)
+                last_key = key
+            time.sleep(20)
+    finally:
+        scheduler_lock.release()
 
 
 def _gui(args: argparse.Namespace | None = None) -> int:
@@ -539,6 +563,64 @@ def _gui_install(args: argparse.Namespace) -> int:
         if report.get("error"):
             print(f"Error: {report['error']}")
     return 0 if report["ready"] else 2
+
+
+def _startup_paths() -> dict[str, Path]:
+    return {
+        target: launcher_path(platform.system(), target)
+        for target in ("autostart", "desktop")
+    }
+
+
+def _startup_status(args: argparse.Namespace) -> int:
+    report = build_report()
+    paths = _startup_paths()
+    payload = {
+        "gui_capable": bool(report.get("gui_capable")),
+        "gui_ready": bool(report.get("gui_ready")),
+        "targets": {
+            target: {"path": str(path), "installed": path.exists()}
+            for target, path in paths.items()
+        },
+    }
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    return 0
+
+
+def _startup_install(args: argparse.Namespace) -> int:
+    if not args.confirm:
+        raise ValueError("persistent startup changes require --confirm")
+    store = _store()
+    if not _scheduled_tasks(store.load()):
+        raise ValueError("no enabled scheduled push tasks; configure a task before installing startup")
+    report = build_report()
+    if args.target == "desktop" and not report.get("gui_capable"):
+        raise ValueError("desktop launcher requires gui_capable=true; use autostart on a headless host")
+    command_mode = "scheduler" if args.target == "autostart" else args.command_mode
+    path = install_launcher(
+        target=args.target,
+        executable=sys.executable,
+        working_directory=Path.cwd(),
+        command_mode=command_mode,
+    )
+    print(json.dumps({
+        "ok": True,
+        "target": args.target,
+        "command_mode": command_mode,
+        "path": str(path),
+        "starts": "next_login" if args.target == "autostart" else "when_opened",
+        "gui_capable": bool(report.get("gui_capable")),
+    }, ensure_ascii=False, indent=2))
+    return 0
+
+
+def _startup_remove(args: argparse.Namespace) -> int:
+    if not args.confirm:
+        raise ValueError("removing startup integration requires --confirm")
+    path = launcher_path(platform.system(), args.target)
+    removed = remove_launcher(path)
+    print(json.dumps({"ok": True, "target": args.target, "path": str(path), "removed": removed}, ensure_ascii=False, indent=2))
+    return 0
 
 
 def _doctor(args: argparse.Namespace) -> int:

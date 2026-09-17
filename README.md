@@ -62,6 +62,12 @@ python -m weex_tg_bot config remove-bot ops
 python -m weex_tg_bot config remove-group -1001234567891
 python -m weex_tg_bot test-telegram --bot-name rebates --chat-id -1001234567890
 
+# 查看/安装/移除可选的用户级自动启动或桌面启动器（需要明确确认）
+python -m weex_tg_bot startup status
+python -m weex_tg_bot startup install --target autostart --confirm
+python -m weex_tg_bot startup install --target desktop --confirm  # 仅 gui_capable=true
+python -m weex_tg_bot startup remove --target autostart --confirm
+
 # 手动交付必须明确选择目标 Bot/群组；send-result 只接收完整 Partner 结果
 python -m weex_tg_bot send-result --date 2026-09-15 \
   --bot-name rebates --chat-id -1001234567890 --input partner-results.json
@@ -85,6 +91,8 @@ GUI 概览页支持按 Bot 名称、群名称或 Chat ID 查找，也可以删�
 2. 临时查询：要求用户提供 UTC 开始/结束时间、profile、币种、产品类型、范围（明确确认全量下级或 UID 列表）、公式和目标 Bot/群组。
 
 在模式和参数确认前，不查询 Partner、不使用“上一天”、首个 profile、全部绑定或全量下级等默认值，也不发送 Telegram。
+
+用户只说“推送返佣到 TG”时，还必须先单独确认是“添加定时任务”还是“单次使用”。选择单次使用时不得创建或修改定时任务；选择添加任务后才进入 Bot、群组、profile、query、语言和 schedule 配置。
 
 推送文案会在指标前展示本次查询上下文：触发方式、WEEX 账号 profile、查询范围、UTC 时间段、产品类型、结算币种和推送目标；随后展示五项指标、Final Income 公式和数据完整性状态。
 
@@ -144,7 +152,7 @@ AI 可以直接帮用户执行 CLI 配置，但必须采用逐步引导：先读
 
 注意：TG 配置 GUI 与 WEEX 账号管理器是两个独立入口。打开 WEEX 账号管理器不等于已经授权 TG 配置写入。
 
-GUI 使用本 skill 自己的 managed venv。窗口打开后只有“概览”“推送任务”“使用说明”三个主区域：概览展示 Bot 状态、群组目录、任务数量和调度数量，并提供查找、编辑、删除；Bot/群组新增和编辑均从概览打开模态弹窗。群组弹窗只维护群名称和 Chat ID，不直接保存 profile/query；推送任务弹窗负责 Bot/群组目标、profile、query、语言和定时。推送任务页还提供测试 Telegram 和立即发送。GUI 启动时会同时启动后台调度器，保存后的任务会在任务时区的时间点自动检查并发送；关闭 GUI 后调度器停止。任务弹窗中的 profile 来自已保存账号，币种/产品选项从官方 Partner skill 契约动态读取，仅作为提示，不构成本地允许列表；用户输入最终由官方 Partner skill 校验。UID 通过官方 `list-referral-uids` 加载，支持搜索和多选。勾选“全部下级”会禁用并忽略 UID 选择器。查询窗口支持上一完整自然日/周/月/年，以及排除当天的近 N 天多选；自定义 N 天必须选择 UTC 开始日期。推送时间使用任务时区下的小时/分钟选择器，默认 UTC，支持 IANA 时区和夏令时，保存时生成时间×查询窗口组合。修改群组 Chat ID 会同步任务目标，任务语言独立保存。右上角语言选择器会自动发现 `weex_tg_bot/locales/*.json`，启动时按系统 locale 自动选择；当前随包提供 `en_us`、`zh_cn`、`zh_tw`、`ko`、`ja`、`vi`、`id`、`th`、`fa_ir`、`ar`、`tr`、`de`、`fr`、`it`、`es_es`、`pt_pt`、`pl`、`ru`、`uk`、`az`、`es_419`、`es_ar`、`pt_br`，新增语言只需新增同 key 的 locale JSON 文件。RTL 语言（阿拉伯语、波斯语）会自动应用右到左文本方向。Telegram 文案与 GUI 共用同一套 key。
+GUI 使用本 skill 自己的 managed venv。窗口打开后只有“概览”“推送任务”“使用说明”三个主区域：概览展示 Bot 状态、群组目录、任务数量和调度数量，并提供查找、编辑、删除；Bot/群组新增和编辑均从概览打开模态弹窗。群组弹窗只维护群名称和 Chat ID，不直接保存 profile/query；推送任务弹窗负责 Bot/群组目标、profile、query、语言和定时。推送任务页还提供测试 Telegram 和立即发送。GUI 启动时会尝试获取共享 scheduler 锁；锁空闲时启动后台调度器，已有其他实例时仍可使用 GUI 但跳过自身 scheduler。保存后的任务会在任务时区的时间点自动检查并发送；关闭 GUI 后它拥有的调度器停止。任务弹窗中的 profile 来自已保存账号，币种/产品选项从官方 Partner skill 契约动态读取，仅作为提示，不构成本地允许列表；用户输入最终由官方 Partner skill 校验。UID 通过官方 `list-referral-uids` 加载，支持搜索和多选。勾选“全部下级”会禁用并忽略 UID 选择器。查询窗口支持上一完整自然日/周/月/年，以及排除当天的近 N 天多选；自定义 N 天必须选择 UTC 开始日期。推送时间使用任务时区下的小时/分钟选择器，默认 UTC，支持 IANA 时区和夏令时，保存时生成时间×查询窗口组合。修改群组 Chat ID 会同步任务目标，任务语言独立保存。右上角语言选择器会自动发现 `weex_tg_bot/locales/*.json`，启动时按系统 locale 自动选择；当前随包提供 `en_us`、`zh_cn`、`zh_tw`、`ko`、`ja`、`vi`、`id`、`th`、`fa_ir`、`ar`、`tr`、`de`、`fr`、`it`、`es_es`、`pt_pt`、`pl`、`ru`、`uk`、`az`、`es_419`、`es_ar`、`pt_br`，新增语言只需新增同 key 的 locale JSON 文件。RTL 语言（阿拉伯语、波斯语）会自动应用右到左文本方向。Telegram 文案与 GUI 共用同一套 key。
 
 用户选择 GUI 且依赖缺失时，在后台执行：
 
@@ -156,6 +164,10 @@ python -m weex_tg_bot gui --language auto
 安装目录位于用户级 `weex-tg-skill/gui-runtime/venv`，不会复用系统 Python 的 GUI 依赖。没有用户选择 GUI（或明确确认安装）时不会自动创建 venv 或安装依赖。
 
 用户选择由 agent 直接配置时，按“预检 → 选择/新建 Bot → 选择/新建群组 → 选择现有 WEEX profile → 选择 Partner 能力和范围 → 设置语言/定时 → 展示摘要并确认 → 写入”的顺序推进，每轮只询问一个选择或缺失字段。然后用 `config set --bot-name NAME --token-stdin`/`--token-env` 添加 Bot、用 `config add-group CHAT_ID --group-name GROUP_NAME` 维护独立群组目录，再用 GUI 任务编辑器或 `config add-task` 创建任务。`send-result` 必须显式指定 `--bot-name` 与 `--chat-id`。若 token 是用户在聊天中明确授权提交的，也必须沿用 stdin/environment 路径，不能出现在命令参数或输出中。
+
+Skill 加载完成后只做 `doctor --json` 与 `startup status` 只读检查。若用户希望登录后自动运行或桌面打开入口，必须单独确认后再执行 `startup install ... --confirm`；不得把 skill 发现事件本身当作系统自启授权。
+
+定时任务写入后不会自动生效，必须有 scheduler 进程运行。Agent 要再次检查 `doctor --json` 和 `startup status`，让用户明确选择当前 GUI、登录后自启、桌面启动器、手动 `python -m weex_tg_bot run` 或暂不启用，并在用户选择后完成对应启用。GUI、开机自启、桌面启动器和手动 `run` 共用跨进程 scheduler 锁：第一个实例负责调度，GUI 检测到已有实例时只打开界面而跳过自身 scheduler，第二个 `run` 会正常退出。GUI 关闭会停止其自身 scheduler；自启安装从下次登录生效；`run --once` 会立即执行推送，不能当作健康检查。
 
 Agent 引导配置时按“预检 → 选择 GUI/CLI/代配置 → 收集自定义 Bot 名称、每个群名称/Chat ID、profile、query 和时间段 → 写入 SQLite → `config show` 验证 → 按需测试/发送”的顺序进行。缺少 Bot 名称、群名称、profile、Chat ID、明确全量 scope 或定时参数时只追问缺少项，不查询 Partner，也不写入部分假设配置。
 
