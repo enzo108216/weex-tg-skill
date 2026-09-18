@@ -32,7 +32,7 @@ For normal use, ask a skills-capable AI tool to install and configure the skill:
 
 ```text
 Install the WEEX Telegram Push skill from
-https://github.com/enzo108216/weex-tg-skill. Inspect the current setup, reuse
+https://github.com/enzo108216/weex-tg-skill/tree/feature/local. Inspect the current setup, reuse
 existing records where possible, ask only for missing choices, show a summary,
 and ask before writing configuration or sending a message.
 ```
