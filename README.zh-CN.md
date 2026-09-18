@@ -162,13 +162,19 @@ GUI 的实际流程是：概览页查找/管理 Bot 和独立群组；推送任�
 python -m weex_tg_bot doctor --json
 ```
 
-把 `doctor` 输出作为路由依据展示给用户。先看 `gui_capable`（由 `os`、`tkinter_importable`、`desktop_available` 决定）判断系统是否具备 GUI 基础能力；不能因为 managed runtime 未安装就直接把 GUI 排除。只要 GUI 基础能力满足，就询问用户使用 GUI、自己运行 CLI，还是让 agent 直接帮忙配置，再进行任何窗口启动或配置写入。
+把 `doctor` 输出作为路由依据展示给用户。先看 `gui_capable`（由 `os`、`tkinter_importable`、`desktop_available` 决定）判断系统是否具备 GUI 基础能力；不能因为 managed runtime 未安装就直接把 GUI 排除。只要 GUI 基础能力满足，就用数字选项询问用户：
+
+1. **使用 GUI**：打开配置窗口，由用户在界面中填写。
+2. **帮我配置**：由 agent 逐步检查现有设置并协助填写，只在需要时询问一个选项。
+3. **自己运行 CLI**：由 agent 提供命令，由用户在终端执行。
+
+完成路线选择后，再进行窗口启动或配置写入。
 
 `doctor --json` 的 `skill_root_candidates` 是只读发现结果。选择 GUI 或执行 `gui-install` 时，程序会先扫描当前 AI 工具暴露的 skill 根目录（包括 `*_SKILLS_ROOT`、`CODEX_HOME`、Codex vendor skills 和常见工具目录），验证 `weex-partner-skill/scripts/weex_partner_cli.py`；只有一个候选时自动写入 `skill_root`，多个候选时要求选择，找不到候选时停止并提示安装/暴露 Partner skill。CLI/GUI 不会静默选择多个候选。
 
 用户选择 GUI 后，agent 会先完成 Partner skill 自动发现/配置；候选唯一时无需再次手填路径。若 managed runtime 缺失，再在后台执行 `python -m weex_tg_bot gui-install --accept-managed-runtime`，安装本 skill 自己的隔离依赖后再启动 `python -m weex_tg_bot gui --language auto`。该选择同时授权这次 skill 路径配置和 managed runtime 的本地安装及其联网依赖安装；安装失败时必须报告原因并明确提供 CLI 选项，不得静默切换或写入部分配置。不要把依赖安装到系统 Python。
 
-只有在不支持的操作系统、无交互桌面或 Tkinter 不可用时才只提供 CLI 路径（也可以由 agent 代为执行 CLI）；不要尝试安装系统级 Tkinter/桌面组件或在 headless 会话启动 GUI。CLI 仍须在首次写入、token/群组变更或测试发送前取得确认，并通过 stdin/environment 处理 token。用户明确授权时，也可以直接在聊天中提交 token；此时不得回显、记录或把 token 放入命令参数。`recommendation=gui` 和 `recommendation=gui-install` 只是就绪提示，不能替代 GUI 基础能力判断和用户路线选择。
+只有在不支持的操作系统、无交互桌面或 Tkinter 不可用时才不提供 GUI，并提供两个数字选项：**2. 帮我配置**、**3. 自己运行 CLI**。不要尝试安装系统级 Tkinter/桌面组件或在 headless 会话启动 GUI。CLI 仍须在首次写入、token/群组变更或测试发送前取得确认，并通过 stdin/environment 处理 token。用户明确授权时，也可以直接在聊天中提交 token；此时不得回显、记录或把 token 放入命令参数。`recommendation=gui` 和 `recommendation=gui-install` 只是就绪提示，不能替代 GUI 基础能力判断和用户路线选择。
 
 AI 可以直接帮用户执行 CLI 配置，但必须采用逐步引导：先读取并列出现有 Bot、群组和 WEEX profile，让用户选择；只有缺少对象时才询问一个新字段。随后再逐步确认 profile、产品/币种、UID 范围、语言和定时。Chat ID 可以在聊天中提供；用户明确授权时 Bot token 也可以直接贴到聊天中，但 agent 不得回显 token、把 token 放进命令参数或写入日志，只能通过本地 stdin 或环境变量使用。没有 WEEX profile 时转交 `weex-trader-skill`，Partner 产品/UID 能力缺失时转交 `weex-partner-skill`，不得强行猜测或兜底。
 
@@ -191,7 +197,7 @@ Skill 加载完成后只做 `doctor --json` 与 `startup status` 只读检查。
 
 定时任务写入后不会自动生效，必须有 scheduler 进程运行。Agent 要再次检查 `doctor --json` 和 `startup status`，让用户明确选择当前 GUI、登录后自启、桌面启动器、手动 `python -m weex_tg_bot run` 或暂不启用，并在用户选择后完成对应启用。GUI、开机自启、桌面启动器和手动 `run` 共用跨进程 scheduler 锁：第一个实例负责调度，GUI 检测到已有实例时只打开界面而跳过自身 scheduler，第二个 `run` 会正常退出。GUI 关闭会停止其自身 scheduler；自启安装从下次登录生效；`run --once` 会立即执行推送，不能当作健康检查。
 
-Agent 引导配置时按“预检 → 选择 GUI/CLI/代配置 → 收集自定义 Bot 名称、每个群名称/Chat ID、profile、query 和时间段 → 写入 SQLite → `config show` 验证 → 按需测试/发送”的顺序进行。缺少 Bot 名称、群名称、profile、Chat ID、明确全量 scope 或定时参数时只追问缺少项，不查询 Partner，也不写入部分假设配置。
+选择“帮我配置”时按“预检 → 选择配置路线 → 收集自定义 Bot 名称、每个群名称/Chat ID、profile、query 和时间段 → 写入 SQLite → `config show` 验证 → 按需测试/发送”的顺序进行。缺少 Bot 名称、群名称、profile、Chat ID、明确全量 scope 或定时参数时只追问缺少项，不查询 Partner，也不写入部分假设配置。
 
 ## 两个 skill 的协作
 

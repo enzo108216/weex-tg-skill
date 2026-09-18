@@ -54,9 +54,12 @@ is a missing dependency,
 not a reason to hide the GUI choice. Do not use `recommendation=command` alone
 to force CLI when the desktop and Tkinter checks say that a GUI can run.
 
-When the system is GUI-capable, present GUI and CLI routes and also tell the
-user that the agent can perform the CLI setup for them. Ask which route to use
-before any write or window launch:
+When the system is GUI-capable, present three numbered, user-facing choices and
+ask which route to use before any write or window launch:
+
+1. **使用 GUI**：打开配置窗口，由用户在界面中填写。
+2. **帮我配置**：由 agent 逐步检查现有设置并协助填写；每次配置写入前仍按规则确认。
+3. **自己运行 CLI**：由 agent 提供命令，用户在自己的终端执行。
 
 - GUI: `python -m weex_tg_bot gui --language auto`. If
   `managed_runtime_ready` is false, install the missing skill-owned GUI runtime
@@ -72,9 +75,10 @@ before any write or window launch:
   Ask for confirmation before the first configuration write, token change,
   group change, or test send if the user's route choice did not already clearly
   authorize that operation.
-- Agent-assisted setup: the agent can run the CLI steps on the user's behalf
-  after authorization, but must guide the user one decision at a time. Do not
-  ask for Bot name, token, Chat IDs, profile, query, and schedules as one batch.
+- Help-the-user setup (the **“帮我配置”** option): the agent can run the CLI
+  steps on the user's behalf after authorization, but must guide the user one
+  decision at a time. Do not ask for Bot name, token, Chat IDs, profile, query,
+  and schedules as one batch.
   First inspect the current SQLite configuration and list existing Bot names;
   ask the user to choose an existing Bot or explicitly create a new one. Ask
   for a token only when the selected Bot has no token or the user requests a
@@ -92,8 +96,8 @@ before any write or window launch:
   GUI creates the same records through its dialogs and shared SQLite store.
 
 If the system is not GUI-capable (unsupported OS, no interactive desktop, or
-Tkinter unavailable), explain the blocking preflight facts and offer CLI-only
-routes, including agent-assisted CLI configuration.
+Tkinter unavailable), explain the blocking preflight facts and offer the two
+remaining routes: **帮我配置** or **自己运行 CLI**.
 Do not try to install a system Tkinter/desktop component or launch a GUI from a
 headless session. Still ask for confirmation before CLI mutations. If the user
 explicitly chose direct token submission, accept it for the current operation,
@@ -139,17 +143,22 @@ WEEX account/profile manager supplied by `weex-trader-skill`. A request to open
 the WEEX account manager follows that skill's GUI/runtime rules and does not
 authorize TG configuration writes.
 
-Use a short route question that makes the available choice and side effect
-explicit, for example:
+Use a short route question with numbered choices that makes the available choice
+and side effect explicit, for example:
 
-> Preflight result: desktop and Tkinter are available. Would you like to use the GUI, run the CLI yourself, or have the agent configure it step by step? The GUI path first discovers the Partner skill from the current AI tool and then handles the GUI runtime; the guided path first lists existing Bots, groups, and WEEX profiles and asks for only one choice or missing value at a time.
+> 预检结果：桌面和 Tkinter 可用。请选择配置方式：
+> 1. **使用 GUI**：打开配置窗口，由你在界面中填写。
+> 2. **帮我配置**：我逐步检查现有设置并协助你填写，只在需要时询问一个选项。
+> 3. **自己运行 CLI**：我提供命令，由你在终端执行。
+>
+> 选择 GUI 时会先发现 Partner skill 并处理 GUI 运行时；选择“帮我配置”时会先列出现有 Bot、群组和 WEEX profile，再逐项补齐缺失信息。
 
-For a GUI-capable system, one route question is sufficient: a GUI choice covers
-Partner skill discovery/configuration, managed-runtime installation, and the
-subsequent TG window launch. A direct
-  agent-assisted choice covers the CLI setup only after the token delivery method
-  and target groups plus their profile/query bindings are confirmed. A user choosing the WEEX account manager is
-not a substitute for the TG route choice.
+For a GUI-capable system, one numbered route question is sufficient: choice 1
+covers Partner skill discovery/configuration, managed-runtime installation, and
+the subsequent TG window launch; choice 2 covers step-by-step CLI assistance
+only after the token delivery method and target groups plus their profile/query
+bindings are confirmed; choice 3 leaves all CLI execution to the user. A user
+choosing the WEEX account manager is not a substitute for the TG route choice.
 
 ## Guided configuration flow
 
@@ -173,8 +182,9 @@ configuration until the user chooses one mode. If the user explicitly says
 delivery, follow the manual mode selection in section 5 and keep task storage
 unchanged.
 
-Run `python -m weex_tg_bot doctor --json` first. Present the GUI/CLI/agent route
-and its side effect. A direct “configure/enable/repair” request authorizes the
+Run `python -m weex_tg_bot doctor --json` first. Present the numbered GUI/
+“帮我配置”/self-run CLI choices and their side effects. A direct
+“configure/enable/repair” request authorizes the
 configuration write, but not a test message unless the user asks for one. A GUI
 choice authorizes the managed GUI runtime installation described above.
 
@@ -491,7 +501,7 @@ Use Decimal arithmetic. Reject missing fields, invalid/negative amounts, unknown
   copy are loaded from the same catalog, and each push task persists its language.
 - GUI preflight/install: use `doctor --json` to decide whether the system is GUI-capable and expose `skill_root_candidates`; before either `gui-install` or `gui`, automatically persist a unique valid candidate from the current AI tool's skill roots, stop on ambiguity/missing candidates, then run `python -m weex_tg_bot gui-install --accept-managed-runtime` in the background when dependencies are missing, and finally launch `python -m weex_tg_bot gui --language auto`.
 - CLI: `doctor`, `gui-preflight`, `gui-install`, `config set`, `config add-group`, `config add-task`, `config find`, `config remove-bot`, `config remove-group`, `config clear-token`, `config show`, `test-telegram`, `send`, `send-result`, `run`, and `startup status|install|remove`. `config find bot [QUERY]` searches Bot names; `config find group [QUERY]` searches group names and Chat IDs. `send-result` always requires an explicit `--bot-name` and `--chat-id`; `run --once` executes every enabled task schedule immediately and must not be used as a silent startup probe.
-- Agent-assisted setup: offer to run the CLI configuration directly; require a
+- Help-the-user setup: offer to run the CLI configuration directly; require a
   custom Bot name, Bot token, standalone group name/Chat ID, and one or more
   independently named push tasks with profile/query. The token may come through
   GUI/stdin/environment, or directly in chat
