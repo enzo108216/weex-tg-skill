@@ -15,7 +15,7 @@ AI tool:
 
 ```text
 Install the WEEX Telegram Push skill from
-https://github.com/weex-labs/weex-tg-skill. Inspect the current setup, then
+https://github.com/enzo108216/weex-tg-skill. Inspect the current setup, then
 configure one scheduled Telegram push. Reuse existing records, ask only for
 missing choices, keep secrets out of chat and logs, show a final summary, and
 ask before any configuration write or message send.
