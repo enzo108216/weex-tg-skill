@@ -10,7 +10,7 @@ the skill in one natural-language request:
 
 ```text
 Install the WEEX Telegram Push skill from
-https://github.com/enzo108216/weex-tg-skill. Check what is already configured,
+https://github.com/weex-labs/weex-tg-skill. Check what is already configured,
 then help me set up a scheduled Telegram push. Reuse existing Bot, group, and
 WEEX profile records; ask one missing choice at a time; keep secrets out of
 chat and logs; show a final summary; and ask before writing or sending.
